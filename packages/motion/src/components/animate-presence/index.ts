@@ -1,0 +1,6 @@
+export { AnimatePresence } from './AnimatePresence'
+export type { AnimatePresenceProps } from './types'
+export { createPresence, createIsPresent, createPresenceData } from './use-presence'
+export type { CreatePresenceOptions } from './use-presence'
+export type { PresenceHandler } from './presence'
+export { AnimatePresenceContext, useAnimatePresenceContext } from './presence'

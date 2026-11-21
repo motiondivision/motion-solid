@@ -1,0 +1,72 @@
+import { frame } from 'motion-dom'
+import { noop } from 'motion-utils'
+import type { PanInfo } from './PanSession'
+import { PanSession } from './PanSession'
+import { addPointerEvent } from '@/events'
+import { Feature } from '@/features/feature'
+import { getContextWindow } from '@/utils/get-context-window'
+
+type PanEventHandler = (event: PointerEvent, info: PanInfo) => void
+function asyncHandler(handler?: PanEventHandler) {
+  return (event: PointerEvent, info: PanInfo) => {
+    if (handler) {
+      frame.update(() => handler(event, info), false, true)
+    }
+  }
+}
+
+export class PanGesture extends Feature {
+  static key = 'pan' as const
+
+  private session?: PanSession
+
+  private removePointerDownListener: Function = noop
+
+  onPointerDown(pointerDownEvent: PointerEvent) {
+    this.session = new PanSession(
+      pointerDownEvent,
+      this.createPanHandlers(),
+      {
+        transformPagePoint: this.state.visualElement.getTransformPagePoint(),
+        contextWindow: getContextWindow(this.state.visualElement),
+      },
+    )
+  }
+
+  createPanHandlers() {
+    return {
+      onSessionStart: asyncHandler((_, info) => {
+        const { onPanSessionStart } = this.state.options
+        onPanSessionStart && onPanSessionStart(_, info)
+      }),
+      onStart: asyncHandler((_, info) => {
+        const { onPanStart } = this.state.options
+        onPanStart && onPanStart(_, info)
+      }),
+      onMove: asyncHandler((event, info) => {
+        const { onPan } = this.state.options
+        onPan && onPan(event, info)
+      }),
+      onEnd: (event: PointerEvent, info: PanInfo) => {
+        const { onPanEnd } = this.state.options
+        delete this.session
+        if (onPanEnd) {
+          frame.postRender(() => onPanEnd(event, info))
+        }
+      },
+    }
+  }
+
+  mount() {
+    this.removePointerDownListener = addPointerEvent(
+      this.state.element!,
+      'pointerdown',
+      this.onPointerDown.bind(this),
+    )
+  }
+
+  unmount() {
+    this.removePointerDownListener()
+    this.session && this.session.end()
+  }
+}

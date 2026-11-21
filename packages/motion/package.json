@@ -1,0 +1,83 @@
+{
+  "name": "motion-solid",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Solid 2.0 bindings for Motion (Framer Motion): declarative animations, gestures, layout transitions",
+  "author": "David Di Biase",
+  "license": "MIT",
+  "keywords": [
+    "solid",
+    "solid-js",
+    "solidjs",
+    "motion",
+    "framer-motion",
+    "animation",
+    "gestures",
+    "layout-animation",
+    "spring",
+    "scroll",
+    "drag",
+    "solid-2"
+  ],
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/es/index.d.ts",
+      "import": "./dist/es/index.mjs"
+    }
+  },
+  "main": "./dist/es/index.mjs",
+  "module": "./dist/es/index.mjs",
+  "types": "./dist/es/index.d.ts",
+  "files": [
+    "LICENSE",
+    "README.md",
+    "NOTICE",
+    "dist"
+  ],
+  "scripts": {
+    "dev": "vite build --watch",
+    "prebuild": "cp ../../README.md ./README.md && cp ../../NOTICE ./NOTICE && cp ../../LICENSE ./LICENSE",
+    "build": "rimraf dist && vite build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "parity": "node scripts/parity-report.cjs",
+    "prepack": "pnpm build"
+  },
+  "peerDependencies": {
+    "@solidjs/web": ">=2.0.0",
+    "solid-js": ">=2.0.0"
+  },
+  "dependencies": {
+    "@solid-primitives/event-listener": "^3.0.0",
+    "@solid-primitives/media": "^4.0.0",
+    "@solid-primitives/page-utilities": "^3.0.0",
+    "@solid-primitives/refs": "^3.0.0",
+    "@solid-primitives/transition-group": "^2.0.0",
+    "@solid-primitives/utils": "^7.0.1",
+    "framer-motion": "~14.14.0",
+    "motion-dom": "~14.14.0",
+    "motion-utils": "~14.7.0"
+  },
+  "devDependencies": {
+    "@solidjs/testing-library": "next",
+    "@solidjs/vite-plugin": "^3.0.1",
+    "@solidjs/web": "^2.0.3",
+    "jsdom": "^26.0.0",
+    "rimraf": "^6.0.1",
+    "solid-js": "^2.0.3",
+    "vite": "^8.3.2",
+    "vite-plugin-dts": "^4.5.4",
+    "vitest": "^4.1.11"
+  },
+  "homepage": "https://github.com/motiondivision/motion-solid#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/motiondivision/motion-solid.git",
+    "directory": "packages/motion"
+  },
+  "bugs": {
+    "url": "https://github.com/motiondivision/motion-solid/issues"
+  }
+}

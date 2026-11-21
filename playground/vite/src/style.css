@@ -1,0 +1,18 @@
+:root { color-scheme: dark; font-family: system-ui, sans-serif; }
+body { margin: 0; background: #111; color: #eee; }
+nav { display: flex; gap: 8px; padding: 12px; flex-wrap: wrap; border-bottom: 1px solid #333; }
+nav button { background: #222; color: inherit; border: 1px solid #444; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+nav button[aria-current="true"] { background: #6d28d9; border-color: #6d28d9; }
+main { padding: 24px; }
+h2 { margin-top: 0; }
+.row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.box { width: 100px; height: 100px; background: #f43f5e; border-radius: 12px; }
+.btn { background: #6d28d9; color: white; border: 0; padding: 8px 16px; border-radius: 8px; cursor: pointer; }
+.reorder { list-style: none; padding: 0; margin: 0; width: 240px; display: grid; gap: 8px; }
+.reorder li { background: #2563eb; padding: 12px; border-radius: 8px; cursor: grab; }
+.progress { position: fixed; top: 0; left: 0; right: 0; height: 6px; background: #22c55e; transform-origin: 0 50%; z-index: 10; }
+.scroller { height: 160px; overflow-y: scroll; border: 1px solid #444; border-radius: 8px; padding: 8px; }
+.tall { height: 600px; background: linear-gradient(#222, #444); }
+.tabs { display: flex; gap: 4px; }
+.tabs button { position: relative; background: none; color: inherit; border: 0; padding: 8px 14px; cursor: pointer; }
+.underline { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: #f59e0b; }

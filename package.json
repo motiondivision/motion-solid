@@ -1,0 +1,26 @@
+{
+  "name": "solid-motion",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "description": "Motion for Solid workspace: a Solid 2.0 port of Framer Motion, structured like motion-vue",
+  "author": "David Di Biase",
+  "license": "MIT",
+  "keywords": [
+    "solid",
+    "motion",
+    "framer-motion",
+    "animation"
+  ],
+  "scripts": {
+    "dev": "pnpm --filter motion-solid dev",
+    "build": "pnpm --filter motion-solid build",
+    "test": "pnpm --filter motion-solid test",
+    "typecheck": "pnpm --filter motion-solid typecheck",
+    "play": "pnpm --filter @motion-solid/playground-vite dev"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.9",
+    "typescript": "^5.9.0"
+  }
+}

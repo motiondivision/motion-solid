@@ -1,0 +1,277 @@
+import type { MotionStateContext, Options } from '@/types'
+import { invariant } from 'motion-utils'
+import type { AnimationType, DOMKeyframesDefinition, VisualElement, VisualElementOptions } from 'motion-dom'
+import { isMotionValue, isVariantLabel } from 'motion-dom'
+import { isSVGElement, resolveInitialValues } from '@/state/utils'
+import type { Feature, FeatureKey, StateType } from '@/features'
+import type { ExitFeature } from '@/features/exit/exit'
+import type { PresenceContext } from '@/components/animate-presence/presence'
+
+/** True when a MotionValue in `style` was added, removed or replaced. */
+function styleMotionValuesChanged(prev?: Record<string, any>, next?: Record<string, any>) {
+  if (prev === next)
+    return false
+  for (const key in next) {
+    if (isMotionValue(next[key]) && prev?.[key] !== next[key])
+      return true
+  }
+  for (const key in prev) {
+    if (isMotionValue(prev[key]) && !(next && key in next))
+      return true
+  }
+  return false
+}
+
+// Map to track mounted motion states by element
+export const mountedStates = new WeakMap<Element, MotionState>()
+
+export type VisualElementRenderer = (tag: string, options: VisualElementOptions<any, any>) => VisualElement<Element>
+
+/**
+ * The render + feature bundle a motion instance runs with — from the
+ * component's own feature bundle or resolved asynchronously by LazyMotion.
+ */
+export interface MotionBundle {
+  renderer?: VisualElementRenderer
+  features?: Array<typeof Feature>
+}
+
+/**
+ * Core class that manages animation state and orchestrates animations.
+ * Handles component lifecycle methods in the correct order based on component tree position.
+ */
+export class MotionState {
+  public type: 'html' | 'svg'
+  public element: HTMLElement | SVGElement | null = null
+  // Parent reference for handling component tree relationships
+  public parent?: MotionState
+
+  /** Derived from ExitFeature, which owns the only exit-in-flight flag. */
+  get isExiting() {
+    return this.getFeature<ExitFeature>('exit')?.isExiting ?? false
+  }
+
+  public options: Options & {
+    presenceContext?: PresenceContext
+  }
+
+  // Track child components for proper lifecycle ordering
+  private children?: Set<MotionState> = new Set()
+
+  // Initial style values, serves as fallback before visualElement exists
+  public latestValues: DOMKeyframesDefinition
+
+  // Feature instances managed by key
+  private features = new Map<FeatureKey, Feature>()
+  // Feature constructors for this state only — set at construction,
+  // replaced later via setBundle() (e.g. LazyMotion async resolution)
+  private featureCtors: Array<typeof Feature> = []
+
+  // Visual element instance from Framer Motion (created by setBundle via initVisualElement)
+  public visualElement!: VisualElement<Element>
+
+  constructor(options: Options, parent?: MotionState, bundle: MotionBundle = {}) {
+    this.options = options
+    this.parent = parent
+    // Add to parent's children set for lifecycle management
+    parent?.children?.add(this)
+
+    this.latestValues = resolveInitialValues(options, this.context)
+    this.type = isSVGElement(this.options.as as any) ? 'svg' : 'html'
+    // Create the visual element and features eagerly when a renderer is
+    // available — constructors run top-down, so parents exist before children
+    this.setBundle(bundle)
+  }
+
+  private removeCompleteListener?: () => void
+
+  private _context: MotionStateContext | null = null
+
+  // Get animation context, falling back to parent context for inheritance
+  get context() {
+    if (!this._context) {
+      const handler = {
+        get: (_target: MotionStateContext, prop: keyof MotionStateContext) => {
+          const value = this.options[prop as keyof Options]
+          if (isVariantLabel(value) || (prop === 'initial' && value === false)) {
+            return value
+          }
+          return this.parent?.context[prop]
+        },
+      }
+
+      this._context = new Proxy({} as MotionStateContext, handler)
+    }
+    return this._context
+  }
+
+  /**
+   * Declare (or asynchronously resolve, e.g. LazyMotion) the render + feature
+   * bundle for this state, then sync — the visual element and feature
+   * instances are created lazily inside updateFeatures().
+   */
+  setBundle(bundle: MotionBundle) {
+    if (bundle.renderer)
+      this.initVisualElement(bundle.renderer)
+    if (bundle.features?.length)
+      this.featureCtors = bundle.features
+    this.updateFeatures()
+  }
+
+  /**
+   * Instantiate any missing features, then mount unmounted ones and update
+   * the rest. Feature constructors dereference the visual element, so this
+   * no-ops until setBundle() has created one. Feature mount is isMount-guarded,
+   * so this is safe to call repeatedly and from any lifecycle stage.
+   */
+  updateFeatures() {
+    if (!this.visualElement)
+      return
+    for (const FeatureCtor of this.featureCtors) {
+      let feature = this.features.get(FeatureCtor.key)
+      if (!feature) {
+        feature = new FeatureCtor(this)
+        this.features.set(FeatureCtor.key, feature)
+      }
+      if (!this.isMounted())
+        continue
+      if (feature.isMount) {
+        feature.update()
+      }
+      else {
+        feature.mount()
+        feature.isMount = true
+      }
+    }
+  }
+
+  // Update visual element with new options
+  updateOptions(options: Options) {
+    const prevStyle = this.options.style as Record<string, any> | undefined
+    this.options = options
+    this.visualElement?.update({
+      ...this.options as any,
+      whileTap: this.options.whilePress,
+      transformPagePoint: this.options.motionConfig?.transformPagePoint,
+      isStatic: this.options.motionConfig?.isStatic,
+      // @ts-expect-error — VisualElement.update's second arg types presenceContext as PresenceContextProps, not our narrowed data shape
+    }, this.options.presenceContext ?? null)
+    // A swapped style MotionValue is bound by `update` but nothing re-renders (React gets
+    // that from its own re-render), so the DOM would keep the old value until it next changes.
+    if (this.isMounted() && styleMotionValuesChanged(prevStyle, this.options.style as Record<string, any> | undefined))
+      this.visualElement?.scheduleRender()
+  }
+
+  // Mount motion state to DOM element, handles parent-child relationships
+  mount(element: HTMLElement | SVGElement) {
+    invariant(
+      Boolean(element),
+      'Animation state must be mounted with valid Element',
+    )
+    mountedStates.set(element, this)
+    this.element = element
+    // @ts-expect-error — LayoutFeature's refreshRootScroll is not typed
+    this.features.get('layout')?.refreshRootScroll()
+    this.visualElement?.mount(element)
+    // `transitionEnd` (and `setTarget`) on a key with no MotionValue yet adds one without
+    // a render request, so the DOM would never see it. Render once an animation is done.
+    this.removeCompleteListener?.()
+    this.removeCompleteListener = this.visualElement?.on('AnimationComplete', () => {
+      this.visualElement.scheduleRender()
+    })
+    this.updateFeatures()
+  }
+
+  // Called before unmounting, lets features capture pre-removal state
+  // (e.g. LayoutFeature's layout snapshot)
+  beforeUnmount() {
+    this.getSnapshot(false)
+  }
+
+  unmount() {
+    this.removeCompleteListener?.()
+    this.removeCompleteListener = undefined
+    this.parent?.children?.delete(this)
+    if (this.element)
+      mountedStates.delete(this.element)
+    this.features.forEach((f) => {
+      f.unmount()
+      f.isMount = false
+    })
+    this.visualElement?.unmount()
+    // Truthful isMounted() for KeepAlive remounts — the element reference
+    // must not survive unmount.
+    this.element = null
+  }
+
+  // Called before updating, executes in parent-to-child order
+  beforeUpdate() {
+    this.getSnapshot(!this.isExiting)
+  }
+
+  // Update motion state with new options
+  update() {
+    this.updateFeatures()
+    this.didUpdate()
+  }
+
+  /** Access an installed feature by key, e.g. getFeature<ExitFeature>('exit') */
+  getFeature<T extends Feature>(key: FeatureKey): T | undefined {
+    return this.features.get(key) as T | undefined
+  }
+
+  // Set animation state active status and propagate to children
+  setActive(name: StateType, isActive: boolean) {
+    // motion-dom's animation state keys use 'whileTap'; the public prop is 'whilePress'
+    const type = (name === 'whilePress' ? 'whileTap' : name) as AnimationType
+    this.visualElement?.animationState?.setActive(type, isActive)
+  }
+
+  isMounted() {
+    return Boolean(this.element)
+  }
+
+  /**
+   * Create and attach the visual element using the given renderer.
+   * Called by setBundle(); no-ops once created.
+   */
+  private initVisualElement(renderer: VisualElementRenderer) {
+    if (this.visualElement)
+      return
+    this.visualElement = renderer(this.options.as as string, {
+      // @ts-expect-error — VisualElementOptions types presenceContext as PresenceContextProps, not our narrowed data shape
+      presenceContext: this.options.presenceContext ?? null,
+      parent: this.parent?.visualElement,
+      props: {
+        ...this.options,
+        whileTap: this.options.whilePress,
+        transformPagePoint: this.options.motionConfig?.transformPagePoint,
+        isStatic: this.options.motionConfig?.isStatic,
+      } as any,
+      visualState: {
+        renderState: {
+          transform: {},
+          transformOrigin: {},
+          style: {},
+          vars: {},
+          attrs: {},
+        },
+        latestValues: { ...this.latestValues } as any,
+      },
+      reducedMotionConfig: this.options.motionConfig?.reducedMotion,
+      skipAnimations: this.options.motionConfig?.skipAnimations,
+    })
+    // No parent.addChild() here — visualElement.mount() registers with the
+    // parent after `current` is assigned, so enteringChildren never holds
+    // unmounted children (#208: stagger sort crashes on them in Firefox).
+    if (this.isMounted()) {
+      this.visualElement.mount(this.element!)
+    }
+  }
+
+  getSnapshot(isPresent: boolean) {
+    this.features.get('layout')?.getSnapshot(isPresent)
+  }
+
+  didUpdate() {}
+}

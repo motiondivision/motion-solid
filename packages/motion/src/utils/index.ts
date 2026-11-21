@@ -1,0 +1,15 @@
+// Explicit exports: `createContext`, `resolveMotionProps`, `getContextWindow` and the element
+// resolvers are internal (`createContext` would also collide with solid-js's `createContext`).
+export { createInView } from './use-in-view'
+export type { CreateInViewOptions } from './use-in-view'
+export { createAnimationFrame } from './use-animation-frame'
+export type { FrameCallback } from './use-animation-frame'
+export { createDomRef } from './use-dom-ref'
+export type { ElementInput } from './use-dom-ref'
+export { createPageInView } from './use-page-in-view'
+export { createCycle } from './use-cycle'
+export type { Cycle, CycleState } from './use-cycle'
+export { createInstantTransition, createInstantLayoutTransition, disableInstantTransitions } from './create-instant-transition'
+export { createResetProjection } from './create-reset-projection'
+export { transformViewBoxPoint } from './transform-viewbox-point'
+export { correctParentTransform } from './transform-rotated-parent'

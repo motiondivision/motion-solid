@@ -1,0 +1,8 @@
+export { createAnimate } from './hooks/use-animate'
+export type { AnimateScope, ScopedAnimate } from './hooks/use-animate'
+export { createAnimationControls } from './hooks/use-animation-controls'
+export { animationControls } from './hooks/animation-controls'
+export { createReducedMotion } from './hooks/use-reduced-motion'
+export { createReducedMotionConfig } from './hooks/create-reduced-motion-config'
+export { createScopeMotion } from './hooks/use-scope-motion'
+export type { CreateScopeMotionOptions } from './hooks/use-scope-motion'
