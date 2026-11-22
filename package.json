@@ -1,6 +1,6 @@
 {
   "name": "solid-motion",
-  "version": "0.1.0",
+  "version": "2.0.0",
   "private": true,
   "packageManager": "pnpm@9.15.0",
   "description": "Motion for Solid workspace: a Solid 2.0 port of Framer Motion, structured like motion-vue",
@@ -21,6 +21,6 @@
   },
   "devDependencies": {
     "@types/node": "^22.13.9",
-    "typescript": "^5.9.0"
+    "typescript": "^6.0.0"
   }
 }

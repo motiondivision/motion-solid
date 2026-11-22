@@ -4,9 +4,10 @@ All notable changes to `motion-solid` are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Breaking changes are replaced directly, with no
 compatibility aliases (see [ADR-0001](https://github.com/motiondivision/motion-solid/blob/main/docs/adr/0001-parity-policy.md)).
 
-## [0.1.0] - Unreleased
+## [2.0.0] - Unreleased
 
-First version: a Solid 2.0 binding for Motion 14.14 (`framer-motion` / `motion-dom` `~14.14.0`,
+First release. The major version tracks Solid: 2.x of `motion-solid` is for Solid 2.0 (`solid-js` and `@solidjs/web` `>=2` are peer
+dependencies; Solid 1.x is not supported). It is a Solid 2.0 binding for Motion 14.14 (`framer-motion` / `motion-dom` `~14.14.0`,
 `motion-utils` `~14.7.0`) with the public interface of the React version and the folder structure of motion-vue.
 
 ### Added
