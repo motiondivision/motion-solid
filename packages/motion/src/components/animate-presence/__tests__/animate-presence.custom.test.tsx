@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createSignal, flush, For, OBSERVE } from 'solid-js'
+import { createSignal, flush, For, OBSERVE, Show } from 'solid-js'
 import { render } from '@solidjs/testing-library'
 import { AnimatePresence } from '@/components/animate-presence'
 import { Motion } from '@/components/motion'
@@ -37,4 +37,34 @@ describe('AnimatePresence custom', () => {
     const events = JSON.stringify(result)
     expect(events).not.toContain('STRICT_READ_UNTRACKED')
   })
+
+  for (const mode of ['sync', 'wait', 'popLayout'] as const) {
+    it(`exits the leaving child with the custom value changed in the same update (${mode})`, async () => {
+      const [dir, setDir] = createSignal(1)
+      const [key, setKey] = createSignal('a')
+      const { container } = render(() => (
+        <AnimatePresence mode={mode} custom={dir()}>
+          <Show when={key()} keyed>
+            {k => (
+              <Motion
+                data-k={k}
+                initial={{ x: 0 }}
+                animate={{ x: 0 }}
+                exit="out"
+                variants={{ out: (d: number) => ({ x: d * 100 }) }}
+                transition={{ duration: 0.1 }}
+              />
+            )}
+          </Show>
+        </AnimatePresence>
+      ))
+      await delay(100)
+      const a = container.querySelector<HTMLElement>('[data-k="a"]')!
+      setDir(-1)
+      setKey('b')
+      flush()
+      await delay(300)
+      expect(a.style.transform).toContain('-100px')
+    })
+  }
 })

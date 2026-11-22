@@ -84,8 +84,10 @@ export function ReorderItem<V = any, T extends ElementType = 'li'>(props: Reorde
   const setElement = (el: HTMLElement | null) => {
     element.current = el ?? null
   }
-  // The user's ref is forwarded to the element once, as Solid does for `ref={props.ref}`.
-  const ref = mergeRefs(...asArray((props as any).ref), setElement)
+  // The user's ref is forwarded to the element once, as Solid does for `ref={props.ref}`. It is
+  // read in a memo and handed to the motion component as a lazy `ref` prop: reading `props.ref`
+  // in the component body emits STRICT_READ_UNTRACKED when `props` is a merge (a spread).
+  const ref = createMemo(() => mergeRefs(...asArray((props as any).ref), setElement))
 
   // Register the element under its value; follows value changes and unregisters on unmount.
   createEffect(
@@ -197,47 +199,49 @@ export function ReorderItem<V = any, T extends ElementType = 'li'>(props: Reorde
     return typeof c === 'function' ? (c as (state: ReorderItemState) => JSX.Element)({ isDragging }) : c
   }
 
+  const itemProps = merge(
+    {
+      get ref() {
+        return ref()
+      },
+      get tabindex() {
+        return isTabStop?.(props.value) ? 0 : -1
+      },
+    },
+    motionProps,
+    {
+      get as() {
+        return props.as ?? 'li'
+      },
+      get layout() {
+        return props.layout ?? true
+      },
+      get style() {
+        return {
+          ...(props.style as Record<string, any>),
+          x: point.x(),
+          y: point.y(),
+          zIndex,
+        }
+      },
+      get drag() {
+        return drag()
+      },
+      dragSnapToOrigin: true,
+      onDrag: handleDrag,
+      onDragEnd: handleDragEnd,
+      onKeyDown: handleKeyDown,
+      onFocusIn: handleFocusIn,
+      onBlur: handleBlur,
+      onLayoutMeasure: (measured: Box, prev: Box) => {
+        registerItem?.(props.value, measured)
+        props.onLayoutMeasure?.(measured, prev)
+      },
+    },
+  )
+
   return (
-    <Motion
-      ref={ref}
-      {...merge(
-        {
-          get tabindex() {
-            return isTabStop?.(props.value) ? 0 : -1
-          },
-        },
-        motionProps,
-        {
-          get as() {
-            return props.as ?? 'li'
-          },
-          get layout() {
-            return props.layout ?? true
-          },
-          get style() {
-            return {
-              ...(props.style as Record<string, any>),
-              x: point.x(),
-              y: point.y(),
-              zIndex,
-            }
-          },
-          get drag() {
-            return drag()
-          },
-          dragSnapToOrigin: true,
-          onDrag: handleDrag,
-          onDragEnd: handleDragEnd,
-          onKeyDown: handleKeyDown,
-          onFocusIn: handleFocusIn,
-          onBlur: handleBlur,
-          onLayoutMeasure: (measured: Box, prev: Box) => {
-            registerItem?.(props.value, measured)
-            props.onLayoutMeasure?.(measured, prev)
-          },
-        },
-      )}
-    >
+    <Motion {...itemProps}>
       {children()}
     </Motion>
   ) as unknown as JSX.Element

@@ -33,16 +33,18 @@
     "LICENSE",
     "README.md",
     "NOTICE",
+    "CHANGELOG.md",
     "dist"
   ],
   "scripts": {
     "dev": "vite build --watch",
-    "prebuild": "cp ../../README.md ./README.md && cp ../../NOTICE ./NOTICE && cp ../../LICENSE ./LICENSE",
+    "prebuild": "cp ../../README.md ./README.md && cp ../../NOTICE ./NOTICE && cp ../../LICENSE ./LICENSE && cp ../../CHANGELOG.md ./CHANGELOG.md",
     "build": "rimraf dist && vite build",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "parity": "node scripts/parity-report.cjs",
+    "docs:check": "node scripts/readme-snippets.mjs",
     "prepack": "pnpm build"
   },
   "peerDependencies": {
@@ -52,7 +54,7 @@
   "dependencies": {
     "@solid-primitives/event-listener": "^3.0.0",
     "@solid-primitives/media": "^4.0.0",
-    "@solid-primitives/page-utilities": "^3.0.0",
+    "@solid-primitives/mutation-observer": "^3.0.0",
     "@solid-primitives/refs": "^3.0.0",
     "@solid-primitives/transition-group": "^2.0.0",
     "@solid-primitives/utils": "^7.0.1",

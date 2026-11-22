@@ -5,7 +5,7 @@ import { inView } from 'framer-motion/dom'
 import { createEffect, createMemo, createSignal } from 'solid-js'
 import type { Options } from '@/types/state'
 import type { ElementInput } from './use-dom-ref'
-import { resolveElementInput } from './use-dom-ref'
+import { createMounted, resolveElementInput } from './use-dom-ref'
 
 type InViewOptions = NonNullable<Options['inViewOptions']>
 
@@ -45,11 +45,17 @@ export function createInView(
   const initial = createMemo(() => access(options)?.initial ?? false)
   const [isInView, setInView] = createSignal(() => initial())
 
-  const el = createMemo(() => resolveElementInput(element))
+  // Plain accessors (`() => el` assigned in `ref`) are not reactive: resolve again after mount.
+  const mounted = createMounted()
+  const el = createMemo(() => {
+    mounted()
+    return resolveElementInput(element)
+  })
   const once = createMemo(() => !!access(options)?.once)
   const margin = createMemo(() => access(options)?.margin)
   const amount = createMemo(() => access(options)?.amount)
   const root = createMemo(() => {
+    mounted()
     const value = access(options)?.root as any
     return resolveElementInput(value) as Element | Document | undefined
   })

@@ -381,10 +381,10 @@ Get started with [Motion Studio](https://motion.dev/docs/tools-quick-start).
 ### 💎 Contribute
 
 - Want to contribute? Clone the repo, then run `pnpm install`, `pnpm build` and `pnpm test`. The playground (`pnpm play`) has a demo for each feature.
-- Read [docs/agents/architecture.md](docs/agents/architecture.md) and [docs/agents/porting-contract.md](docs/agents/porting-contract.md) before changing code.
+- Read [docs/agents/architecture.md](https://github.com/motiondivision/motion-solid/blob/main/docs/agents/architecture.md) and [docs/agents/porting-contract.md](https://github.com/motiondivision/motion-solid/blob/main/docs/agents/porting-contract.md) before changing code.
 - [Join the Motion discord](https://discord.com/invite/dCBuRgdNDG)
 
 ### 👩🏻‍⚖️ License
 
 - Motion for Solid is MIT licensed.
-- It builds on [motion-vue](https://github.com/motiondivision/motion-vue) and [Framer Motion / Motion](https://github.com/motiondivision/motion), both MIT licensed. See [NOTICE](NOTICE).
+- It builds on [motion-vue](https://github.com/motiondivision/motion-vue) and [Framer Motion / Motion](https://github.com/motiondivision/motion), both MIT licensed. See [NOTICE](https://github.com/motiondivision/motion-solid/blob/main/NOTICE).

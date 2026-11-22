@@ -4,7 +4,7 @@
  */
 export * from './dom'
 export { delay as delayInMs, resolveMotionValue, motionValue as createMotionValue } from 'motion-dom'
-export type { MotionValue, FollowValueOptions } from 'motion-dom'
+export type { FollowValueOptions } from 'motion-dom'
 export * from './components'
 export * from './components/context'
 export * from './value'
@@ -24,7 +24,8 @@ export type { MotionCreateOptions, MotionNameSpace, MotionTagComponent } from '.
 // React-named type aliases.
 import type { MotionComponentProps as _MotionComponentProps } from './components/motion/types'
 import type { CreateInViewOptions as _CreateInViewOptions } from './utils/use-in-view'
-import type { createScroll as _createScroll } from './value/use-scroll'
+import type { CreateScrollOptions as _CreateScrollOptions, createScroll as _createScroll } from './value/use-scroll'
+import type { CreateScopeMotionOptions as _CreateScopeMotionOptions } from './animation/hooks/use-scope-motion'
 
 /** Props of a motion HTML element (React's `HTMLMotionProps`). */
 export type HTMLMotionProps<T extends keyof HTMLElementTagNameMap = 'div'> = _MotionComponentProps<T>
@@ -34,3 +35,7 @@ export type SVGMotionProps<T extends keyof SVGElementTagNameMap = 'svg'> = _Moti
 export type UseInViewOptions = _CreateInViewOptions
 /** The MotionValues returned by `createScroll` (React's `ScrollMotionValues`). */
 export type ScrollMotionValues = ReturnType<typeof _createScroll>
+/** Options for `createScroll` (React's `UseScrollOptions`). */
+export type UseScrollOptions = _CreateScrollOptions
+/** Options for `createScopeMotion` (React's `UseScopeMotionOptions`). */
+export type UseScopeMotionOptions = _CreateScopeMotionOptions

@@ -101,3 +101,32 @@ describe('createInView with a real IntersectionObserver', () => {
     expect(observer.disconnected).toBe(true)
   })
 })
+
+describe('createInView with plain (non-reactive) element inputs', () => {
+  it('resolves an accessor returning a variable assigned in ref', () => {
+    let node: HTMLDivElement | undefined
+    let isInView!: ReturnType<typeof createInView>
+    render(() => {
+      isInView = createInView(() => node)
+      return <div ref={(el: HTMLDivElement) => { node = el }} />
+    })
+    flush()
+    expect(observersOf(node!).length).toBe(1)
+    triggerIntersection(node!, true)
+    flush()
+    expect(isInView()).toBe(true)
+  })
+
+  it('resolves a { current } object assigned in ref', () => {
+    const scope: { current: Element | null } = { current: null }
+    let isInView!: ReturnType<typeof createInView>
+    render(() => {
+      isInView = createInView(scope)
+      return <div ref={(el: HTMLDivElement) => { scope.current = el }} />
+    })
+    flush()
+    triggerIntersection(scope.current!, true)
+    flush()
+    expect(isInView()).toBe(true)
+  })
+})

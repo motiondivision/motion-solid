@@ -4,9 +4,10 @@ import { scroll } from 'framer-motion/dom'
 import { warning } from 'motion-utils'
 import { access, isServer } from '@solid-primitives/utils'
 import type { MaybeAccessor } from '@solid-primitives/utils'
-import { createEffect, createRenderEffect } from 'solid-js'
+import { createEffect, createMemo, createRenderEffect } from 'solid-js'
 import type { Accessor } from 'solid-js'
 import type { ScrollInfoOptions } from '@/types'
+import { createMounted } from '@/utils/use-dom-ref'
 import { offsetToViewTimelineRange } from './scroll/offsets'
 
 /**
@@ -137,6 +138,18 @@ export function createScroll(options: MaybeAccessor<CreateScrollOptions> = {}) {
     },
   )
 
+  // Plain accessors (`() => el` assigned in `ref`) are not reactive: resolve again after mount.
+  // Memoised so that the effect only restarts when an element actually resolves differently.
+  const mounted = createMounted()
+  const resolvedContainer = createMemo(() => {
+    mounted()
+    return resolveElement(access(options).container)
+  })
+  const resolvedTarget = createMemo(() => {
+    mounted()
+    return resolveElement(access(options).target)
+  })
+
   createEffect(
     () => {
       if (isServer)
@@ -144,7 +157,7 @@ export function createScroll(options: MaybeAccessor<CreateScrollOptions> = {}) {
       const { container, target, ...rest } = access(options)
       // Resolving here also tracks any signal the element accessors read, so the listener is
       // rebuilt when a signal-backed ref is assigned.
-      return { rest, container, target, resolvedContainer: resolveElement(container), resolvedTarget: resolveElement(target) }
+      return { rest, container, target, resolvedContainer: resolvedContainer(), resolvedTarget: resolvedTarget() }
     },
     (config) => {
       if (!config)
@@ -159,8 +172,9 @@ export function createScroll(options: MaybeAccessor<CreateScrollOptions> = {}) {
        * window: starting without it would track the wrong thing.
        */
       const tryStart = (isRetry: boolean) => {
-        // The first attempt uses the elements resolved (tracked) in the compute phase; only the
-        // microtask retry re-resolves, outside any effect callback.
+        // The first attempt uses the elements resolved (tracked) in the compute phase; they are
+        // resolved again after mount, which re-runs this effect. Only the microtask retry
+        // re-resolves directly, for a ref assigned later than that.
         const container = isRetry ? resolveElement(config.container) : config.resolvedContainer
         const target = isRetry ? resolveElement(config.target) : config.resolvedTarget
         const containerPending = isPending(config.container, container)

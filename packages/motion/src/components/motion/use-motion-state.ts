@@ -1,5 +1,5 @@
 import type { Accessor } from 'solid-js'
-import { createEffect, createMemo, createRenderEffect, merge, omit, onCleanup, onSettled } from 'solid-js'
+import { createEffect, createMemo, createRenderEffect, createSignal, merge, omit, onCleanup, onSettled } from 'solid-js'
 import { isMotionValue, rootProjectionNode } from 'motion-dom'
 import { invariant, warning } from 'motion-utils'
 import { useLayoutGroupContext, useMotionContext } from '@/components/context'
@@ -10,6 +10,7 @@ import { motionPropDefaults } from '@/components/motion/props'
 import { MotionState } from '@/state'
 import type { MotionBundle } from '@/state/motion-state'
 import { createSVGStyles, createStyles } from '@/state/style'
+import { resolveInitialValues } from '@/state/utils'
 import type { Options } from '@/types'
 import { resolveMotionProps } from '@/utils/resolve-motion-props'
 
@@ -82,6 +83,7 @@ export function createMotionState(
   const optionProps = merge(motionPropDefaults, omit(props, 'children', 'ref', 'forwardMotionProps'))
 
   let state!: MotionState
+  let appliedOptions: Options | undefined
   let element: Element | undefined
 
   const options = createMemo<Options>(() => {
@@ -110,6 +112,7 @@ export function createMotionState(
         resolved.initial = false
       }
       state = new MotionState(resolved, parentState!, bundle)
+      appliedOptions = resolved
     }
     return resolved
   })
@@ -130,11 +133,43 @@ export function createMotionState(
     },
   )
 
+  // Static mode (MotionConfig isStatic) has no engine: style MotionValues are rendered by
+  // value, so a change to one re-renders the attributes (React re-renders for the same reason).
+  const [staticTick, setStaticTick] = createSignal(0)
+  createEffect(
+    () => {
+      if (!state.isStatic)
+        return []
+      const style = props.style as Record<string, any> | undefined
+      return Object.values(style ?? {}).filter(isMotionValue)
+    },
+    (values) => {
+      const unsubscribes = values.map(value => value.on('change', () => setStaticTick(n => n + 1)))
+      return () => unsubscribes.forEach(unsubscribe => unsubscribe())
+    },
+  )
+
+  // Style MotionValues of the previous run: `updateOptions` removes a value that left `style`
+  // only after this memo ran, so its last value must be left out here to clear it from the DOM.
+  let prevStyleValueKeys: string[] = []
+
   const attrs = createMemo(() => {
     options() // re-evaluate when the resolved options change (e.g. `as`)
     const isSVG = state.type === 'svg'
-    const currentValues = state.visualElement?.latestValues || state.latestValues
     const userStyle = props.style as Record<string, any> | undefined
+    let currentValues: Record<string, any>
+    if (state.isStatic) {
+      staticTick()
+      currentValues = resolveInitialValues(options(), state.context)
+    }
+    else {
+      currentValues = { ...(state.visualElement?.latestValues || state.latestValues) }
+      for (const key of prevStyleValueKeys) {
+        if (!userStyle || !(key in userStyle))
+          delete currentValues[key]
+      }
+    }
+    prevStyleValueKeys = Object.keys(userStyle ?? {}).filter(key => isMotionValue(userStyle![key]))
     const attrsProps: Record<string, any> = {}
     let styleProps: Record<string, any> = {
       ...userStyle,
@@ -175,6 +210,12 @@ export function createMotionState(
   createRenderEffect(
     () => [options(), layoutGroup.key?.()] as const,
     ([latest]) => {
+      // A `forceRender` bumps the group key without changing options: the layout coordinator
+      // animates that, from the layout it measured last (a snapshot taken now could be taken
+      // after the DOM already changed).
+      if (latest === appliedOptions)
+        return
+      appliedOptions = latest
       state.updateOptions(latest)
       state.beforeUpdate()
     },

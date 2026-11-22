@@ -46,6 +46,14 @@ export class MotionState {
   // Parent reference for handling component tree relationships
   public parent?: MotionState
 
+  /**
+   * MotionConfig `isStatic` (React semantics): no visual element and no features, so nothing
+   * animates, no gesture or layout runs, and the element renders its initial values directly.
+   */
+  get isStatic() {
+    return this.options.motionConfig?.isStatic === true
+  }
+
   /** Derived from ExitFeature, which owns the only exit-in-flight flag. */
   get isExiting() {
     return this.getFeature<ExitFeature>('exit')?.isExiting ?? false
@@ -111,6 +119,8 @@ export class MotionState {
    * instances are created lazily inside updateFeatures().
    */
   setBundle(bundle: MotionBundle) {
+    if (this.isStatic)
+      return
     if (bundle.renderer)
       this.initVisualElement(bundle.renderer)
     if (bundle.features?.length)

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { OBSERVE, createSignal, flush, merge } from 'solid-js'
 import { render } from '@solidjs/testing-library'
 import { motionValue } from 'motion-dom'
-import { motion } from '@/components/motion'
+import { Motion, motion } from '@/components/motion'
 import { MotionConfig } from '@/components/motion-config'
 import { mountedStates } from '@/state'
 import { delay } from '@/shared/test'
@@ -21,7 +21,7 @@ describe('final review regressions (engine)', () => {
   it('remounts the motion state when `as` swaps the element', async () => {
     const [t, setT] = createSignal('div')
     const [x, setX] = createSignal(0)
-    const r = render(() => <motion.div as={t()} animate={{ opacity: x() }} transition={{ duration: 0.01 }} />)
+    const r = render(() => <Motion as={t()} animate={{ opacity: x() }} transition={{ duration: 0.01 }} />)
     flush()
     await delay(50)
     const e1 = r.container.firstElementChild as HTMLElement
@@ -93,5 +93,38 @@ describe('final review regressions (engine)', () => {
     const el = r.container.firstElementChild!
     expect(el.hasAttribute('values')).toBe(false)
     expect(el.hasAttribute('_dragx')).toBe(false)
+  })
+})
+
+describe('layout siblings without a LayoutGroup', () => {
+  it('a removed layout item makes its siblings animate to their new position', async () => {
+    const { For } = await import('solid-js')
+    const orig = Element.prototype.getBoundingClientRect
+    Element.prototype.getBoundingClientRect = function (this: Element) {
+      const i = this.parentElement ? Array.from(this.parentElement.children).indexOf(this) : 0
+      const top = this.hasAttribute('data-k') ? 100 * i : 0
+      return { x: 0, y: top, top, left: 0, right: 100, bottom: top + 100, width: 100, height: 100, toJSON() {} } as DOMRect
+    }
+    try {
+      const [items, setItems] = createSignal(['a', 'b', 'c'])
+      const r = render(() => (
+        <div>
+          <For each={items()}>
+            {i => <motion.div layout data-k={i} data-testid={i} transition={{ duration: 1 }} />}
+          </For>
+        </div>
+      ))
+      flush()
+      await delay(100)
+      setItems(['b', 'c'])
+      flush()
+      await delay(100)
+      const b = r.container.querySelector('[data-testid="b"]') as HTMLElement
+      expect(b.style.transform).toMatch(/translate/)
+      expect(b.style.transform).not.toBe('none')
+    }
+    finally {
+      Element.prototype.getBoundingClientRect = orig
+    }
   })
 })

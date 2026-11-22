@@ -155,6 +155,18 @@ describe('createScroll', () => {
     dispose()
   })
 
+  it('resolves a plain accessor synchronously after mount, without waiting for a microtask', () => {
+    let target: HTMLDivElement | undefined
+    const dispose = render(() => {
+      createScroll({ target: () => target })
+      return <div ref={(el: HTMLDivElement) => { target = el }} />
+    }, document.createElement('div'))
+    flush()
+    expect(mockScroll).toHaveBeenCalledTimes(1)
+    expect(mockScroll.mock.calls[0][1].target).toBe(target)
+    dispose()
+  })
+
   it('retries once in a microtask when a ref is assigned late (plain variable)', async () => {
     let target: HTMLDivElement | undefined
     const { dispose } = setup({ target: () => target })

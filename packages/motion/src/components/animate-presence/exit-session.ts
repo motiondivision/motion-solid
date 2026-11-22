@@ -15,8 +15,12 @@ interface ExitSession {
   el: HTMLElement
   states: Set<MotionState>
   handlers: Set<PresenceHandler>
-  /** The latest leave callback for this element; a duplicate leave replaces it. */
-  done: VoidFunction
+  /**
+   * The latest leave callback for this element; a duplicate leave replaces it. It may return a
+   * promise that settles once the element has actually left the DOM (`wait` swaps the child
+   * in a later flush).
+   */
+  done: () => void | Promise<void>
   /** Completions still awaited before this element can leave the DOM. */
   pending: number
   active: boolean
@@ -143,7 +147,7 @@ export function createExitSession(config: ExitSessionConfig) {
 
   // ===== Session lifecycle =====
 
-  function track(el: HTMLElement, done: VoidFunction) {
+  function track(el: HTMLElement, done: () => void | Promise<void>) {
     let session = sessions.get(el)
     if (session) {
       // A duplicate leave owns the latest removal callback.
@@ -211,13 +215,19 @@ export function createExitSession(config: ExitSessionConfig) {
       state.getSnapshot(false)
     })
     // Call done to remove DOM
-    session.done()
-    if (!session.el.isConnected) {
-      session.states.forEach((state) => {
-        state.unmount()
-      })
+    const landed = session.done()
+    const settle = () => {
+      if (!session.el.isConnected) {
+        session.states.forEach((state) => {
+          state.unmount()
+        })
+      }
+      closeBatch()
     }
-    closeBatch()
+    if (landed)
+      landed.then(settle)
+    else
+      settle()
   }
 
   function abort(el: HTMLElement) {
@@ -249,7 +259,7 @@ export function createExitSession(config: ExitSessionConfig) {
     done()
   }
 
-  function exit(el: Element, done: VoidFunction) {
+  function exit(el: Element, done: () => void | Promise<void>) {
     track(el as HTMLElement, done)
   }
 

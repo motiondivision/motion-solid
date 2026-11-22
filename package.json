@@ -17,7 +17,7 @@
     "build": "pnpm --filter motion-solid build",
     "test": "pnpm --filter motion-solid test",
     "typecheck": "pnpm --filter motion-solid typecheck",
-    "play": "pnpm --filter @motion-solid/playground-vite dev"
+    "play": "pnpm build && pnpm --filter @motion-solid/playground-vite dev"
   },
   "devDependencies": {
     "@types/node": "^22.13.9",

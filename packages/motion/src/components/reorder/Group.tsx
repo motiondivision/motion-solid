@@ -97,6 +97,7 @@ export function ReorderGroup<V = any, T extends AsTag = 'ul'>(props: ReorderGrou
       activate(first)
   }
 
+  let checked = false
   createRenderEffect(
     () => {
       invariant(Boolean(props.values), 'Reorder.Group must be provided a values prop')
@@ -112,7 +113,16 @@ export function ReorderGroup<V = any, T extends AsTag = 'ul'>(props: ReorderGrou
             map.delete(value)
         })
       }
-      checkTabStop()
+      // After the first run, the check runs after this flush in its own pass: activating the first
+      // rendered item writes `active`, which every item reads, and doing that inside this effect made
+      // each item render twice for one change of `values`. The first run is part of creating the
+      // group (an owned scope, where onFlush is not allowed), and nothing has rendered from `active` yet.
+      if (checked)
+        onFlush(checkTabStop)
+      else {
+        checked = true
+        checkTabStop()
+      }
     },
   )
 
@@ -276,15 +286,19 @@ export function ReorderGroup<V = any, T extends AsTag = 'ul'>(props: ReorderGrou
     reordered = false
   }, { capture: true })
 
-  const ref = mergeRefs(...asArray((props as any).ref), setGroupRef)
+  // Read in a memo and handed over as a lazy `ref` prop: reading `props.ref` in the component
+  // body emits STRICT_READ_UNTRACKED when `props` is a merge (a spread).
+  const ref = createMemo(() => mergeRefs(...asArray((props as any).ref), setGroupRef))
 
   const motionProps = omit(props as any, 'as', 'axis', 'values', 'onReorder', 'ref', 'style', 'children') as Record<string, any>
 
   return (
     <ReorderContext value={context}>
       <Motion
-        ref={ref}
         {...merge(motionProps, {
+          get ref() {
+            return ref()
+          },
           get as() {
             return props.as ?? 'ul'
           },

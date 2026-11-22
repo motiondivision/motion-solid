@@ -56,8 +56,9 @@ export function startTransition(
 
   if (!isSupported) {
     if (typeof process !== 'undefined' && process.env.NODE_ENV !== 'production' && typeof document !== 'undefined') {
+      // warnOnce(condition, message) logs when `condition` is false.
       warnOnce(
-        true,
+        false,
         'startTransition: the View Transitions API is not supported in this browser. The update ran without animation.',
       )
     }

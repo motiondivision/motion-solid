@@ -14,6 +14,8 @@ import type { AsTag } from '@/types/common'
 type AnimationPlaybackControls = AnimationPlaybackControlsWithThen
 export interface VariantType extends DOMKeyframesDefinition {
   transition?: Options['transition']
+  /** Values to set when the animation finishes (React's `transitionEnd`). */
+  transitionEnd?: ResolvedValues
   attrX?: DOMKeyframesDefinition['x']
   attrY?: DOMKeyframesDefinition['y']
   attrScale?: DOMKeyframesDefinition['scale']
@@ -33,7 +35,7 @@ type TransformPropertiesWithoutTransition = Omit<TransformProperties, 'transitio
  */
 type WithMotionPath<T> = T extends any ? Omit<T, 'path'> & { path?: MotionPath } : never
 export type MotionStyleProps = Partial<{
-  [K in keyof Omit<VariantType & TransformPropertiesWithoutTransition, 'attrX' | 'attrY' | 'attrScale'>]: string | number | undefined | MotionValue
+  [K in keyof Omit<VariantType & TransformPropertiesWithoutTransition, 'attrX' | 'attrY' | 'attrScale' | 'transitionEnd'>]: string | number | undefined | MotionValue
 }>
 
 export interface Options<T = any> extends

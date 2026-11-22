@@ -23,7 +23,7 @@ importers:
       '@solid-primitives/media':
         specifier: ^4.0.0
         version: 4.0.0(@solidjs/web@2.0.3(solid-js@2.0.3))(solid-js@2.0.3)
-      '@solid-primitives/page-utilities':
+      '@solid-primitives/mutation-observer':
         specifier: ^3.0.0
         version: 3.0.0(@solidjs/web@2.0.3(solid-js@2.0.3))(solid-js@2.0.3)
       '@solid-primitives/refs':
@@ -88,6 +88,9 @@ importers:
       '@solidjs/vite-plugin':
         specifier: ^3.0.1
         version: 3.0.1(@solidjs/web@2.0.3(solid-js@2.0.3))(solid-js@2.0.3)(vite@8.3.8(@types/node@22.20.5))
+      playwright:
+        specifier: ^1.65.1
+        version: 1.65.1
       typescript:
         specifier: ^5.9.0
         version: 5.9.3
@@ -376,8 +379,8 @@ packages:
       '@solidjs/web': ^2.0.0
       solid-js: ^2.0.0
 
-  '@solid-primitives/page-utilities@3.0.0':
-    resolution: {integrity: sha512-FbG8MBW6S9ta09FeYrHEXG5UOpEG07H/unREQk8qG2LuFvHlhzPziMZvzIJJ03ExaSAAXi5oznt8JNxW2F5Lwg==}
+  '@solid-primitives/mutation-observer@3.0.0':
+    resolution: {integrity: sha512-4qVUsTgd0taV1JYqC8zeVGO0k/c+pgZZoTlQ8Mk6RS1UgoWrli+upSk9U7E7DjbzMox89R4vUmyd38SWMYnqQA==}
     peerDependencies:
       '@solidjs/web': ^2.0.0
       solid-js: ^2.0.0
@@ -1013,6 +1016,16 @@ packages:
   pkg-types@2.4.0:
     resolution: {integrity: sha512-07Fys7iVx0X6TcviMOgogM1Lk33ZyqOezMnU79S+kffWqwolG/5W9V8EgQSeYCIfFTYVgssRbnH630Oa2+soBA==}
 
+  playwright-core@1.65.1:
+    resolution: {integrity: sha512-hqPpz7blSMPxWVdoeE1yiBSzXsKiVOd2k+kjCvmUywD2GPO2Dd9HfcWnq9NN0GHbNZDFgZ9JfBFr+X5/BLo0qw==}
+    engines: {node: '>=20'}
+    hasBin: true
+
+  playwright@1.65.1:
+    resolution: {integrity: sha512-vJ1FuoOrNwOKHUIVEvSt3jT1L+wjjDpwhwIstKtfvTh8XIG4FG4bIFuvNdMxi81LGfAhUgUZleVFaOLY4RIUUw==}
+    engines: {node: '>=20'}
+    hasBin: true
+
   postcss@8.5.33:
     resolution: {integrity: sha512-RVHEU9/Pp1Fnjr/MpAJsZoADukCKhfIi15OunEYiGktIkYLkPVvC1sioWolGDS7XByMTx9m/IGbro0Js13zhnQ==}
     engines: {node: ^10 || ^12 || >=14}
@@ -1598,10 +1611,8 @@ snapshots:
       '@solidjs/web': 2.0.3(solid-js@2.0.3)
       solid-js: 2.0.3
 
-  '@solid-primitives/page-utilities@3.0.0(@solidjs/web@2.0.3(solid-js@2.0.3))(solid-js@2.0.3)':
+  '@solid-primitives/mutation-observer@3.0.0(@solidjs/web@2.0.3(solid-js@2.0.3))(solid-js@2.0.3)':
     dependencies:
-      '@solid-primitives/event-listener': 3.0.0(@solidjs/web@2.0.3(solid-js@2.0.3))(solid-js@2.0.3)
-      '@solid-primitives/rootless': 2.0.0(@solidjs/web@2.0.3(solid-js@2.0.3))(solid-js@2.0.3)
       '@solid-primitives/utils': 7.0.1(@solidjs/web@2.0.3(solid-js@2.0.3))(solid-js@2.0.3)
       '@solidjs/web': 2.0.3(solid-js@2.0.3)
       solid-js: 2.0.3
@@ -2189,6 +2200,12 @@ snapshots:
       confbox: 0.3.2
       exsolve: 1.2.0
       pathe: 2.0.3
+
+  playwright-core@1.65.1: {}
+
+  playwright@1.65.1:
+    dependencies:
+      playwright-core: 1.65.1
 
   postcss@8.5.33:
     dependencies:

@@ -1,4 +1,4 @@
-import { createRenderEffect, onCleanup, onSettled } from 'solid-js'
+import { createRenderEffect, latest, onCleanup, onSettled } from 'solid-js'
 import type { AnimatePresenceProps } from './types'
 import { useMotionConfig } from '@/components/motion-config/context'
 import { useLayoutGroupContext } from '@/components/context'
@@ -33,6 +33,12 @@ export function createPresenceContainer(props: AnimatePresenceProps) {
   createRenderEffect(() => props.custom, (value) => {
     custom = value
   })
+  // An exit starts in the pass in which `custom` changed, before the effect above has applied
+  // (and, in `wait`, while that write is held until the exit is done). React hands the leaving
+  // child the newest `custom`, so the code that starts the exit refreshes the mirror first.
+  const syncCustom = () => {
+    custom = latest(() => props.custom)
+  }
   const context: PresenceContext = {
     get initial() {
       return hasMounted ? undefined : props.initial
@@ -61,5 +67,5 @@ export function createPresenceContainer(props: AnimatePresenceProps) {
     }
   })
 
-  return { session, context }
+  return { session, context, syncCustom }
 }

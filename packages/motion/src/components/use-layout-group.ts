@@ -1,7 +1,7 @@
 import { createMemo } from 'solid-js'
 import { nodeGroup } from 'motion-dom'
 import type { LayoutGroupState } from './context'
-import { useLayoutGroupContext } from './context'
+import { layoutRefresh, useLayoutGroupContext } from './context'
 import { createForceUpdate } from './use-force-update'
 
 /**
@@ -29,10 +29,18 @@ export interface LayoutGroupProps {
 export function createLayoutGroupProvider(props: LayoutGroupProps): LayoutGroupState {
   // Get the parent group, if there is one
   const parentGroup = useLayoutGroupContext()
-  const [forceRender, key] = createForceUpdate()
+  const [bump, key] = createForceUpdate()
 
   // A new group per `inherit` change; stable otherwise so projection nodes keep their group.
   const group = createMemo(() => getGroup(props, parentGroup))
+
+  // `key` tells group members a refresh was requested; the coordinator animates the change
+  // from each node's last measured layout, whether `forceRender` runs before or after the
+  // DOM change it is meant for.
+  const forceRender = () => {
+    bump()
+    layoutRefresh.run(group())
+  }
 
   return {
     get id() {
@@ -47,11 +55,13 @@ export function createLayoutGroupProvider(props: LayoutGroupProps): LayoutGroupS
 }
 
 /**
- * The nearest layout group's `forceRender`. A no-op outside a `LayoutGroup`.
+ * The nearest layout group's `forceRender`: re-measures the group's layout components and
+ * animates whatever moved since their last measurement. Outside a `LayoutGroup` it does the
+ * same for every layout component.
  */
 export function createLayoutGroup() {
   const { forceRender } = useLayoutGroupContext()
-  return { forceRender: forceRender ?? (() => {}) }
+  return { forceRender: forceRender ?? (() => layoutRefresh.run()) }
 }
 
 /**

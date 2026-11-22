@@ -4,7 +4,7 @@ import { renderToString } from '@solidjs/web'
 import { AnimatePresence } from '@/components/animate-presence'
 import { Motion } from '@/components/motion'
 
-const keys = (html: string) => [...html.matchAll(/_hk="([^"]+)"/g)].map(m => m[1])
+const keys = (html: string) => [...html.matchAll(/_hk=(\w+)/g)].map(m => m[1])
 
 describe('AnimatePresence server ids', () => {
   for (const mode of ['sync', 'wait', 'popLayout'] as const) {
@@ -15,7 +15,7 @@ describe('AnimatePresence server ids', () => {
         </AnimatePresence>
       ))
       // Verified against the client in animate-presence.hydrate.test.tsx (same markup, same ids).
-      expect(keys(html)).toEqual(['20720'])
+      expect(keys(html)).toEqual([mode === 'wait' ? '220000820' : '220820'])
     })
   }
 })

@@ -86,7 +86,8 @@ removes anything unused):
 | element/window size, ResizeObserver | `@solid-primitives/resize-observer` |
 | rAF loops (`createAnimationFrame`, `createTime`) | `@solid-primitives/raf` (`createRAF`, `createMs`, `targetFPS`) or motion's `frame` loop when sync with the motion frameloop matters (explain) |
 | `createReducedMotion` | `@solid-primitives/media` (`createMediaQuery('(prefers-reduced-motion: reduce)')`) |
-| page visibility (`usePageInView`) | `@solid-primitives/page-utilities` (`createPageVisibility`) |
+| page visibility (`usePageInView`) | `@solid-primitives/page-utilities` (`createPageVisibility`) unless it breaks hydration ids (it creates its signal only on the client); `createPageInView` is local for that reason |
+| watching DOM mutations (`AnimateView`) | `@solid-primitives/mutation-observer` (`createMutationObserver`) |
 | merging/forwarding refs, resolving children to elements | `@solid-primitives/refs` (`mergeRefs`, `resolveElements`, `resolveFirst`) |
 | combining props / handlers / styles, splitting props | `@solid-primitives/props` (`combineProps`, `combineStyle`, `partitionProps`, `filterProps`) alongside Solid 2's `merge`/`omit` |
 | presence/exit animation state and keeping children mounted while they leave | `@solid-primitives/transition-group` (`createListTransition`, `createSwitchTransition`) and `@solid-primitives/presence` (`createPresence`) — **AnimatePresence must be built on these, adapted to wait for motion `exit` animations**, not a from-scratch keep-alive engine |

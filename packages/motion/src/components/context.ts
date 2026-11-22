@@ -22,8 +22,16 @@ export interface LayoutGroupState {
   key?: Accessor<number>
 }
 
+/**
+ * Re-runs layout for the layout components of a group (all of them without one). The layout
+ * coordinator installs the real function while a layout component is mounted; this
+ * indirection keeps the layout code out of bundles that never use `layout` (tree shaking).
+ */
+export const layoutRefresh: { run: (group?: NodeGroup) => void } = { run: noop }
+
 const defaultLayoutGroup: LayoutGroupState = {
-  forceRender: noop,
+  // Outside a LayoutGroup there is no key to bump: re-run layout for every layout component.
+  forceRender: () => layoutRefresh.run(),
   key: () => 0,
 }
 

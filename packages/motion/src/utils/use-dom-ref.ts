@@ -1,7 +1,7 @@
 import type { Accessor } from 'solid-js'
 import type { MaybeAccessor } from '@solid-primitives/utils'
 import { access } from '@solid-primitives/utils'
-import { createSignal } from 'solid-js'
+import { createSignal, onSettled } from 'solid-js'
 
 /**
  * Anything that can point at an element: an element, an accessor returning
@@ -41,4 +41,18 @@ export function resolveElementInput(input: ElementInput): Element | undefined {
 export function createDomRef<T extends Element = Element>(): [element: Accessor<T | undefined>, ref: (el: T | null | undefined) => void] {
   const [element, setElement] = createSignal<T | undefined>(undefined, { ownedWrite: true })
   return [element, el => setElement(() => getMotionElement(el) as T | undefined)]
+}
+
+/**
+ * Accessor that turns `true` once the owner has mounted (refs assigned during render are set
+ * by then). Read it inside a computation that resolves a plain, non-reactive `ElementInput`
+ * (`() => el`, `{ current }`) so it resolves again after mount. Created on the server too so
+ * hydration ids line up; it never flips there.
+ */
+export function createMounted(): Accessor<boolean> {
+  const [mounted, setMounted] = createSignal(false)
+  onSettled(() => {
+    setMounted(true)
+  })
+  return mounted
 }

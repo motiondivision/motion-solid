@@ -1,4 +1,5 @@
 import type { Accessor } from 'solid-js'
+import { createMutationObserver } from '@solid-primitives/mutation-observer'
 import { createEffect, onCleanup, onSettled, omit } from 'solid-js'
 import type { AnimateViewHandle } from './context'
 import {
@@ -51,7 +52,8 @@ export function createAnimateView(
 
   let layerNames: string[] = []
   let layerElements: Element[] = []
-  let observer: MutationObserver | undefined
+  // Whether the observer currently watches the layer elements (it starts out idle: no initial targets).
+  let observing = false
   let mounted = false
   let mutated = false
 
@@ -64,9 +66,15 @@ export function createAnimateView(
     return Array.from({ length: count }, (_, i) => `${name}-${String.fromCharCode(SUFFIX_A + i)}`)
   }
 
+  // The primitive's own settle/cleanup hooks only manage the (empty) initial targets; the layer
+  // elements are added and dropped by hand because they change on every transition.
+  const [observe, { stop, instance: observer }] = createMutationObserver([], OBSERVE_INIT, () => {
+    mutated = true
+  })
+
   function stopObserving(): void {
-    observer?.disconnect()
-    observer = undefined
+    stop()
+    observing = false
   }
 
   function applyLayerNames(): void {
@@ -80,13 +88,9 @@ export function createAnimateView(
     })
 
     // Observe after the names are written so they don't count as an update
-    if (typeof MutationObserver !== 'undefined') {
-      observer = new MutationObserver(() => {
-        mutated = true
-      })
-      for (const el of layerElements)
-        observer.observe(el, OBSERVE_INIT)
-    }
+    for (const el of layerElements)
+      observe(el)
+    observing = layerElements.length > 0
   }
 
   function removeLayerNames(): void {
@@ -107,7 +111,7 @@ export function createAnimateView(
     applyLayerNames,
     removeLayerNames,
     detectUpdate() {
-      if (!observer || !getActiveViewTransition())
+      if (!observing || !observer || !getActiveViewTransition())
         return
       // Records are delivered on a microtask, which may already have run
       // (flag set) or still be pending (takeRecords drains them synchronously).

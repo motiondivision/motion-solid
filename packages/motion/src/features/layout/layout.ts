@@ -3,10 +3,12 @@ import type { MotionState } from '@/state/motion-state'
 import { type IProjectionNode, type NodeGroup, addScaleCorrector, globalProjectionState } from 'motion-dom'
 import { defaultScaleCorrector } from './config'
 import { isHidden } from '@/utils/is-hidden'
+import { registerLayoutNode, snapshotLayoutSiblings } from './coordinator'
 
 export class LayoutFeature extends Feature {
   static key = 'layout' as const
   private registeredGroup: NodeGroup | undefined
+  private unregisterCoordinator: VoidFunction | undefined
 
   constructor(state: MotionState) {
     super(state)
@@ -44,6 +46,20 @@ export class LayoutFeature extends Feature {
       this.registeredGroup?.add(projection)
   }
 
+  /** Watch for layout changes caused elsewhere in the tree (see `coordinator.ts`). */
+  private updateCoordinator() {
+    const { layout, layoutId } = this.state.options
+    const element = this.state.element
+    const shouldRegister = Boolean((layout || layoutId) && element && this.state.visualElement.projection)
+    if (shouldRegister && !this.unregisterCoordinator) {
+      this.unregisterCoordinator = registerLayoutNode(this.state.visualElement.projection as IProjectionNode, element!)
+    }
+    else if (!shouldRegister && this.unregisterCoordinator) {
+      this.unregisterCoordinator()
+      this.unregisterCoordinator = undefined
+    }
+  }
+
   didUpdate() {
     if (this.state.options.layout || this.state.options.layoutId || this.state.options.drag) {
       this.state.visualElement.projection?.root?.didUpdate()
@@ -66,14 +82,18 @@ export class LayoutFeature extends Feature {
       }
     }
     this.updateLayoutGroup()
+    this.updateCoordinator()
     this.didUpdate()
   }
 
   update() {
     this.updateLayoutGroup()
+    this.updateCoordinator()
   }
 
   unmount() {
+    this.unregisterCoordinator?.()
+    this.unregisterCoordinator = undefined
     const projection = this.state.visualElement.projection
     if (projection)
       this.registeredGroup?.remove(projection)
@@ -89,7 +109,9 @@ export class LayoutFeature extends Feature {
     const projection = this.state.visualElement.projection
     this.updateLayoutGroup()
     const { layout, layoutId, drag, layoutDependency } = this.state.visualElement.props
-    const prevProps = this.state.visualElement.prevProps!
+    // prevProps is unset until the visual element's first update, e.g. when an element
+    // unmounts before any prop change.
+    const prevProps = this.state.visualElement.prevProps
     if (!projection || (!layout && !layoutId && !drag)) {
       return
     }
@@ -100,11 +122,14 @@ export class LayoutFeature extends Feature {
      */
     if (
       drag
-      || prevProps.layoutDependency !== layoutDependency
+      || prevProps?.layoutDependency !== layoutDependency
       || layoutDependency === undefined // ← 没传 layoutDependency 时,每次重渲染都 willUpdate
       || isPresent !== projection.isPresent
     ) {
       projection.willUpdate()
+      // Siblings move when this node changes size or leaves: snapshot them before the DOM does.
+      if (layout || layoutId)
+        snapshotLayoutSiblings(projection)
     }
 
     /**

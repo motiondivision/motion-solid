@@ -77,7 +77,7 @@ describe('animate prop as object', () => {
     render(() => (
       <Motion
         style={{ x }}
-        animate={{ x: target(), transition: { type: false }, transitionEnd: { x: target() * 10 } } as any}
+        animate={{ x: target(), transition: { type: false }, transitionEnd: { x: target() * 10 } }}
       />
     ))
     await delay(50)

@@ -12,7 +12,7 @@ Deep-dive reference for `motion-solid` internals, for contributors. Read the sec
    - a split `createRenderEffect` (deferred) calls `updateOptions` + `beforeUpdate`; a deferred `createEffect` calls `update`;
    - `onCleanup` runs `beforeUnmount`, then `unmount` only if the element is detached. If it is still connected, an AnimatePresence exit holds it and unmounts the state when done.
 4. Style ownership: an `attrs` memo computes `style` (user style plus motion's latest values) and SVG attributes once, and again only when the user's props change. Motion writes the DOM from its frame loop afterwards, so Solid must never re-set animated properties from a signal. Style keys are converted to dash-case because Solid writes object styles with `setProperty`.
-5. `props.ts` lists every prop motion consumes (`motionPropKeys`) and the defaults (`motionPropDefaults`); React names (`whileTap`, `onTap`, `viewport`) are accepted and mapped by `resolveMotionProps`. The `ref` prop (a function or an array of them) is forwarded by a small loop over `asArray(props.ref)` in `use-motion-state.ts`, because `mergeRefs` cannot take arrays; `Reorder.Group` and `Reorder.Item` flatten the array and then use `mergeRefs`.
+5. `props.ts` lists every prop motion consumes (`motionPropKeys`) and the defaults (`motionPropDefaults`); React names (`whileTap`, `onTap`, `viewport`) are accepted and mapped by `resolveMotionProps`. The `ref` prop (a function or an array of them) is forwarded by the component (`ref={[motion.ref, ...asArray(props.ref)]}` in `utils.tsx`). `Reorder.Group` and `Reorder.Item` flatten the array and use `mergeRefs` inside a memo, handed to `Motion` as a lazy `ref` prop, because reading `props.ref` in the component body emits `STRICT_READ_UNTRACKED` when the props are a merge (a spread).
 
 ## Visual element state (`state/`)
 
@@ -46,8 +46,8 @@ Built on `@solid-primitives/transition-group` and adapted to wait for motion `ex
 
 - `AnimatePresence.tsx` provides the presence context (`createPresenceContainer`), resolves children with `children()`, and renders either:
   - `ListPresence` (`sync`, `popLayout`): `createListTransition` with `exitMethod: 'keep-index'` over entries keyed by DOM node. A node that returns during its exit gets a fresh entry so the transition list never reports a second removal for one object;
-  - `WaitPresence` (`wait`): `createSwitchTransition` in `out-in` mode for the first element child.
-  Both call the exit session when a removal starts and `flush()` when it finishes so the exit session sees the element leave the DOM.
+  - `WaitPresence` (`wait`): rendered inside a `Loading` boundary. The displayed node is an async memo that stays pending while the leaving child's exit runs, so Solid keeps the old node on screen and holds everything the entering subtree schedules (effects, `onSettled`, `createInView`, `whileInView`, ref-driven mount) until the new node is attached. The entering child's component body still runs as soon as its source changes (Solid cannot defer a `<Show>` branch's body); only what it schedules is held. Consequence: signals that cause the swap are held for the exit duration, so an outside binding of the same signal shows the old value until the exit finishes. Only the first element child is considered; several children log React's dev warning.
+  Both branches call the exit session when a removal starts and `flush()` when it finishes so the exit session sees the element leave the DOM. On the server (`ServerBranch`) children render once inside the presence context with no transition layer, allocating the same hydration-id-bearing primitives in the same order as the client.
 - `exit-session.ts` (`createExitSession`) is the bookkeeping: registries of motion states and presence handlers found by containment inside the leaving element, one live session per exiting element (a duplicate leave joins it), fan-in to `onExitComplete`, and `popLayout` pinning through an injected style element (`nonce` comes from `MotionConfig`).
 - `use-presence.ts` exposes `createPresence` (hold the removal until `safeToRemove` or an `onExit` promise), `createIsPresent` (read only) and `createPresenceData`. `use-presence-container.ts` wires the context getters (`initial` only applies to the first render).
 - `as` renders a wrapper element via `dynamic`; without it children render directly.
@@ -58,14 +58,27 @@ Built on `@solid-primitives/transition-group` and adapted to wait for motion `ex
 
 ## Layout (`features/layout/`, `components/LayoutGroup.tsx`)
 
-`LayoutGroup` provides `LayoutGroupContext` through `createLayoutGroupProvider` (id/group inheritance, `forceRender`, `key`). Motion components read `layoutGroup.key()` in their update effects so group changes re-snapshot and re-measure. `layoutId` is namespaced by the group id in `resolveMotionProps`; a new component with a `layoutId` that already has a lead skips its `initial` animation. `createLayoutGroupProvider` is the primitive behind `LayoutGroup`; `createLayoutGroup()` only reads the nearest group's `forceRender`.
+`LayoutGroup` provides `LayoutGroupContext` through `createLayoutGroupProvider` (id/group inheritance, `forceRender`, `key`). `layoutId` is namespaced by the group id in `resolveMotionProps`; a new component with a `layoutId` that already has a lead skips its `initial` animation.
+
+**Layout changes caused elsewhere (`coordinator.ts`).** React re-renders every layout component under a re-rendering parent, so each snapshots before the commit. Solid re-renders nothing: `<For>` moves DOM nodes, `<Show>` inserts or removes one, a signal grows an accordion. Solid 2.0.3 has no supported pre-flush seam (`onFlush` runs after the flush, `setWriteHook` is an internal single-slot hook), so the coordinator keeps the projection tree's last measured layout (`node.layout`) as the "before" box and detects the change afterwards, before paint:
+
+- A node registers in `LayoutFeature.mount` when it has `layout` or `layoutId` and unregisters in `unmount`. Nothing is observed while none is registered.
+- One `MutationObserver` (child lists; `class`, `style`, `hidden`, `open`, `width`, `height` attributes) and one `ResizeObserver` (the nodes and their parents: container resize, grid reflow, text changes). Motion's own style writes (transform, opacity, ...) on motion elements are ignored, so a running animation never triggers an update and nothing runs per frame.
+- On a change, every eligible node (present, not a non-lead `layoutId` member, no `layoutDependency`) gets `willUpdate()`, then its snapshot is replaced by the cached layout (a node still animating uses its projection target, so a reshuffle in flight continues from where the element is), and the root's `didUpdate()` measures the new layout and animates the difference. Zero deltas animate nothing. Nodes already snapshotted by their own update path keep that (accurate, pre-DOM) snapshot.
+- When a layout node updates or unmounts through its own path (`LayoutFeature.getSnapshot`), it also snapshots the other layout nodes right away, while the DOM is still old.
+- `createLayoutGroup().forceRender` (and the group's key bump) calls `refreshLayout(group)`: re-run layout for the group (every layout node outside a group) after a change the observers cannot see, e.g. a class set from a stylesheet on an attribute not in the filter. The default context `forceRender` is `refreshLayout()` instead of a no-op. A key bump alone never snapshots (`use-motion-state.ts` skips `beforeUpdate` when only the key changed), because the snapshot could be taken after the DOM changed.
+- `layoutRefresh` in `components/context.ts` is the late-bound hook to `refreshLayout`, so bundles without `layout` do not include `features/layout/`.
+
+`layoutDependency`, unmount-time snapshots and AnimatePresence `popLayout` keep working through the own-update path; `layoutScroll`/`layoutRoot` are handled by the projection's own scroll bookkeeping during `willUpdate`.
+
+**`isStatic`.** `MotionConfig isStatic` (React semantics): `MotionState` creates no visual element and no features, so nothing animates and no gesture, layout or exit runs. The element renders the `initial` values (the `animate` values when `initial` is `false`) from the options, recomputed when props change, and style MotionValues are rendered by value and re-rendered when they change (`use-motion-state.ts`).
 
 ## Values and animation (`value/`, `animation/`, `utils/`)
 
 - `createMotionValue` is motion-dom's `motionValue`. `createTransform`, `createSpring`/`createFollowValue`, `createVelocity`, `createMotionTemplate`, `createTime`, `createMotionValueEvent`, `createComputedMotionValue` and `createCombineMotionValues` return MotionValues and take accessors for reactive inputs.
 - `createScroll` returns the six scroll MotionValues. `options`, `container` and `target` are accessors; elements are resolved after mount, and the acceleration config (ScrollTimeline/ViewTimeline) is set by a render effect so it is in place before dependent values read it. Delegates to `scroll` from `framer-motion/dom`; nothing is tracked on the server.
-- `createAnimate` returns `[scope, animate]`: `scope` is a Solid `ref` callback that also carries `current` / `animations`; animations stop on owner disposal and honour `MotionConfig`. `createAnimationControls` mounts its controls in `onSettled`. `createReducedMotion` uses `@solid-primitives/media`; `createPageInView` uses `@solid-primitives/page-utilities`.
-- `createInView` wraps motion's `inView` (not `@solid-primitives/intersection-observer`) because it shares `amount` / `margin` / `root` semantics with the component. `createDomRef` is the `[element, ref]` pair for primitives that need an element accessor.
+- `createAnimate` returns `[scope, animate]`: `scope` is a Solid `ref` callback that also carries `current` / `animations`; animations stop on owner disposal and honour `MotionConfig`. `createAnimationControls` mounts its controls in `onSettled`. `createReducedMotion` uses `@solid-primitives/media`; `createPageInView` is local (`@solid-primitives/page-utilities` creates its signal only on the client, which shifts hydration ids).
+- `createInView` accepts the same element inputs (element accessor or `{ current }`) and resolves them again after mount, so `() => el` works. It wraps motion's `inView` (not `@solid-primitives/intersection-observer`) because it shares `amount` / `margin` / `root` semantics with the component. `createDomRef` is the `[element, ref]` pair for primitives that need an element accessor.
 - `createAnimationFrame` uses motion's `frame.update`, not `@solid-primitives/raf`, so it runs in the same loop step as value animations.
 
 ## Ref-factory directive (`directive/`)
@@ -76,7 +89,7 @@ Solid 2 has no `use:` directives, so motion-vue's `v-motion` becomes `vMotion(op
 
 - `LazyMotion` provides the bundle (object: synchronous; promise or loader function: when it resolves, through a boxed effect compute so Solid does not await it). `m` components read it and call `state.setBundle`. `strict` throws if a full `motion` component renders below it.
 - `MotionConfig` merges parent config and provides an accessor.
-- `AnimateView` / `startTransition` implement the View Transitions API wrapper (`animate-view/`), resolving elements with `@solid-primitives/refs`.
+- `AnimateView` / `startTransition` implement the View Transitions API wrapper (`animate-view/`), resolving elements with `@solid-primitives/refs` and detecting DOM updates inside the layer elements with `@solid-primitives/mutation-observer`.
 - `RowValue` renders a MotionValue as a text node updated in place.
 
 ## Build
