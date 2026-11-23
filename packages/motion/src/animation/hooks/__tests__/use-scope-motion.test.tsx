@@ -45,4 +45,44 @@ describe('createScopeMotion', () => {
     unmount()
     expect(scopes[1].cancel).toHaveBeenCalledOnce()
   })
+
+  // Issue #4: a plain accessor or { current } is not reactive, so it has to be read again after mount.
+  it('resolves a plain () => el accessor assigned by ref after mount', () => {
+    vi.mocked(scopeMotion).mockImplementation((() => ({ cancel: vi.fn() })) as any)
+    let el: HTMLElement | undefined
+    const { container } = render(() => {
+      createScopeMotion(() => el, () => {})
+      return <div ref={(e: HTMLElement) => { el = e }} />
+    })
+    flush()
+    const roots = vi.mocked(scopeMotion).mock.calls.map(call => call[0])
+    expect(roots.at(-1)).toBe(container.firstChild)
+  })
+
+  it('resolves a { current } object assigned by ref after mount', () => {
+    vi.mocked(scopeMotion).mockImplementation((() => ({ cancel: vi.fn() })) as any)
+    const box: { current: HTMLElement | undefined } = { current: undefined }
+    const { container } = render(() => {
+      createScopeMotion(box as any, () => {})
+      return <div ref={(e: HTMLElement) => { box.current = e }} />
+    })
+    flush()
+    expect(vi.mocked(scopeMotion).mock.calls.at(-1)![0]).toBe(container.firstChild)
+  })
+
+  it('cancels the scope created before the element was known', () => {
+    const first = { cancel: vi.fn() }
+    const second = { cancel: vi.fn() }
+    vi.mocked(scopeMotion).mockReturnValueOnce(first as any).mockReturnValueOnce(second as any)
+    let el: HTMLElement | undefined
+    const { unmount } = render(() => {
+      createScopeMotion(() => el, () => {})
+      return <div ref={(e: HTMLElement) => { el = e }} />
+    })
+    flush()
+    expect(first.cancel).toHaveBeenCalledTimes(1)
+    unmount()
+    flush()
+    expect(second.cancel).toHaveBeenCalledTimes(1)
+  })
 })

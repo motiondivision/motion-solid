@@ -162,3 +162,88 @@ describe('onViewportEnter / onViewportLeave', () => {
     expect(onViewportLeave).not.toHaveBeenCalled()
   })
 })
+
+describe('viewport props set or removed after mount (issue #1)', () => {
+  it('starts observing when whileInView is first set after mount', async () => {
+    const [value, setValue] = createSignal<{ opacity: number } | undefined>(undefined)
+    const { getByTestId } = render(() => (
+      <Motion data-testid="el" whileInView={value()} transition={{ duration: 0 }} />
+    ))
+    flush()
+    const el = getByTestId('el')
+    expect(observersOf(el)).toHaveLength(0)
+
+    setValue({ opacity: 0.4 })
+    flush()
+    await delay(20)
+    expect(observersOf(el)).toHaveLength(1)
+
+    triggerIntersection(el, true)
+    await delay(50)
+    expect(el.style.opacity).toBe('0.4')
+  })
+
+  it('starts observing when only onViewportEnter / onViewportLeave are set later', async () => {
+    const onEnter = vi.fn()
+    const onLeave = vi.fn()
+    const [handlers, setHandlers] = createSignal<{ enter?: () => void, leave?: () => void }>({})
+    const { getByTestId } = render(() => (
+      <Motion data-testid="el" onViewportEnter={handlers().enter} onViewportLeave={handlers().leave} />
+    ))
+    flush()
+    const el = getByTestId('el')
+    expect(observersOf(el)).toHaveLength(0)
+
+    setHandlers({ enter: onEnter, leave: onLeave })
+    flush()
+    await delay(20)
+    triggerIntersection(el, true)
+    await delay(50)
+    expect(onEnter).toHaveBeenCalledTimes(1)
+    triggerIntersection(el, false)
+    await delay(50)
+    expect(onLeave).toHaveBeenCalledTimes(1)
+  })
+
+  it('stops observing, and leaves the in-view state, when the last viewport prop is removed', async () => {
+    const [value, setValue] = createSignal<{ opacity: number } | undefined>({ opacity: 0.4 })
+    const { getByTestId } = render(() => (
+      <Motion data-testid="el" whileInView={value()} transition={{ duration: 0 }} />
+    ))
+    flush()
+    const el = getByTestId('el')
+    triggerIntersection(el, true)
+    await delay(50)
+    expect(el.style.opacity).toBe('0.4')
+
+    setValue(undefined)
+    flush()
+    await delay(50)
+    expect(observersOf(el)).toHaveLength(0)
+    expect(el.style.opacity).not.toBe('0.4')
+  })
+
+  it('keeps one observer when the props change while observing, and restarts it when the options change', async () => {
+    const [opacity, setOpacity] = createSignal(0.4)
+    const [amount, setAmount] = createSignal<'some' | 'all'>('some')
+    const { getByTestId } = render(() => (
+      <Motion data-testid="el" whileInView={{ opacity: opacity() }} inViewOptions={{ amount: amount() }} />
+    ))
+    flush()
+    const el = getByTestId('el')
+    const first = observersOf(el)[0]
+
+    setOpacity(0.7)
+    flush()
+    await delay(20)
+    expect(observersOf(el)).toEqual([first])
+
+    setAmount('all')
+    flush()
+    await delay(20)
+    const after = observersOf(el)
+    expect(after).toHaveLength(1)
+    expect(after[0]).not.toBe(first)
+    expect(first.disconnected).toBe(true)
+  })
+})

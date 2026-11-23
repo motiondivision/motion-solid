@@ -31,6 +31,8 @@ Component names and props match React (`motion.div`, `AnimatePresence`, `LayoutG
 
 - **`create*` for primitives** (anything that creates reactive state/subscriptions and is cleaned up with its owner).
   React's `use*` hooks are renamed; no `use*` aliases are exported.
+- **`make*` follows Solid Primitives** (`makeEventListener`): a non-reactive primitive that acts immediately and returns a function
+  that undoes it, also undone with the owner. The only one here is `makeMotion(element, options)`.
 - **`use*` is reserved for context consumers**, as in Solid itself (`useContext`, `useNavigate`):
   `useMotionContext`, `useMotionConfig`, `useLayoutGroupContext`, `useAnimatePresenceContext`, `useLazyMotionContext`, `useReorderContext`.
 - Pure helpers keep plain names (`animate`, `scroll`, `inView`, `stagger`, `spring`, `cubicBezier`, … re-exported from `framer-motion/dom`).

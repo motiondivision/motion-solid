@@ -54,6 +54,21 @@ export class InViewGesture extends Feature {
   }
 
   update() {
+    const active = this.isActive()
+    if (!active) {
+      // Every viewport prop was removed: stop observing, and leave the in-view state if the
+      // element was in view (nothing would ever clear it otherwise).
+      if (this.removeObserver) {
+        this.unmount()
+        this.state.setActive('whileInView', false)
+      }
+      return
+    }
+    // The first viewport prop was set after mount: nothing is observing yet.
+    if (!this.removeObserver) {
+      this.startObserver()
+      return
+    }
     const { props, prevProps } = this.state.visualElement
     const hasOptionsChanged = ['amount', 'margin', 'root'].some((name) => {
       const current = (props as any).inViewOptions?.[name]

@@ -81,9 +81,11 @@ Built on `@solid-primitives/transition-group` and adapted to wait for motion `ex
 - `createInView` accepts the same element inputs (element accessor or `{ current }`) and resolves them again after mount, so `() => el` works. It wraps motion's `inView` (not `@solid-primitives/intersection-observer`) because it shares `amount` / `margin` / `root` semantics with the component. `createDomRef` is the `[element, ref]` pair for primitives that need an element accessor.
 - `createAnimationFrame` uses motion's `frame.update`, not `@solid-primitives/raf`, so it runs in the same loop step as value animations.
 
-## Ref-factory directive (`directive/`)
+## Ref factories and `makeMotion` (`directive/`)
 
-Solid 2 has no `use:` directives, so motion-vue's `v-motion` becomes `vMotion(options)`, a factory called in an owner that returns a `ref` callback. Two phases: the factory builds the options memo and update effects and registers cleanup; the returned callback only records the element; `onSettled` creates and mounts the `MotionState` and applies initial styles. `createMotionDirective(bundle?, defaults?)` and `createPresetDirective(preset, bundle?)` build variants. No parent-variant propagation (no parent state), no SSR (`getMotionSSRStyle` returns the initial style instead).
+Solid 2 has no `use:` directives, so motion-vue's `v-motion` becomes `attachMotion(options)`, a factory called in an owner that returns a `ref` callback. Two phases: the factory builds the options memo and update effects and registers cleanup; the returned callback only records the element; `onSettled` creates and mounts the `MotionState` and applies initial styles. `createAttachMotion(bundle?, defaults?)` and `createPresetMotion(preset, bundle?)` build variants. No parent-variant propagation (no parent state), no SSR (`getMotionSSRStyle` returns the initial style instead).
+
+`makeMotion(element, options, bundle?)` is the imperative counterpart, following the `make*` convention of Solid Primitives (`makeEventListener`): it needs no reactive primitives (options are a plain object), so it works wherever creating primitives is forbidden. It builds and mounts the `MotionState` synchronously, registers `remove` with `tryOnCleanup` (so it is disposed with the owner it was called in) and returns `remove`. Unlike the ref factory's cleanup, `remove` always unmounts: the element is not owned by a disposing component, so nothing else would. It reads the layout group, presence and `MotionConfig` contexts only when called inside an owner. Solid 2 forbids registering cleanup inside `onSettled` and an effect's apply callback, so call it from a component body or an event handler.
 
 ## Other components
 

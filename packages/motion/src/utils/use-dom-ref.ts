@@ -22,10 +22,22 @@ export function getMotionElement(el: Node | null | undefined): Element | undefin
  * Resolves an `ElementInput`. Reactive when the input is an accessor.
  */
 export function resolveElementInput(input: ElementInput): Element | undefined {
+  // Check the input itself first: the scope from `createAnimate` is a function with a `current`
+  // property, and `access()` must not be allowed to treat it as an accessor.
+  if (isCurrentBox(input))
+    return getMotionElement(input.current)
   const value = access(input as MaybeAccessor<any>)
-  if (value && typeof value === 'object' && 'current' in value && !('nodeType' in value))
+  if (isCurrentBox(value))
     return getMotionElement(value.current)
   return getMotionElement(value)
+}
+
+/** `{ current }` objects and functions carrying `current` (like the `createAnimate` scope), but not DOM nodes. */
+function isCurrentBox(value: unknown): value is { current: Element | null | undefined } {
+  return value != null
+    && (typeof value === 'object' || typeof value === 'function')
+    && 'current' in value
+    && !('nodeType' in value)
 }
 
 /**

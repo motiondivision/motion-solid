@@ -1,13 +1,16 @@
 <h1 align="center"> <img width="35" height="35" alt="Motion logo" src="https://github.com/user-attachments/assets/00d6d1c3-72c4-4c2f-a664-69da13182ffc" /><br />Motion for Solid 2.0</h1>
 
+<!-- npm badges are hidden until the package is published: the `motion-solid` name on npm belongs to a different
+     library (see issue #5), so the shields would show that package's numbers. Restore them with the final name:
 <p align="center">
-  <a href="https://www.npmjs.com/package/motion-solid" target="_blank">
-    <img src="https://img.shields.io/npm/v/motion-solid.svg?style=flat-square" />
+  <a href="https://www.npmjs.com/package/<final-name>" target="_blank">
+    <img src="https://img.shields.io/npm/v/<final-name>.svg?style=flat-square" />
   </a>
-  <a href="https://www.npmjs.com/package/motion-solid" target="_blank">
-  <img src="https://img.shields.io/npm/dm/motion-solid.svg?style=flat-square" />
+  <a href="https://www.npmjs.com/package/<final-name>" target="_blank">
+  <img src="https://img.shields.io/npm/dm/<final-name>.svg?style=flat-square" />
   </a>
 </p>
+-->
 
 <br>
 <hr>
@@ -46,11 +49,10 @@ It does all this:
 
 ### 🐇 Quick start
 
-Install `motion-solid` via your package manager:
-
-```
-npm install motion-solid
-```
+> **Not published yet.** The name `motion-solid` on npm belongs to a different library (a Solid 1.x package), so
+> `npm install motion-solid` installs that one, not this. Until this package is published under its final name, use it
+> from a clone of this repository: run `pnpm install` and `pnpm build`, then `pnpm play` to try it in the playground.
+> The examples below import from `motion-solid`; that specifier changes if the published name does.
 
 `motion-solid` needs `solid-js >=2` and `@solidjs/web >=2` as peer dependencies. Solid 1.x is not supported.
 
@@ -329,27 +331,43 @@ export function App() {
 }
 ```
 
-#### Ref-factory directive
+#### Attach motion to any element
 
-Solid 2 has no `use:` directives, so the directive is a ref factory: call `vMotion` in a component body and pass the result as `ref`. It works on elements that are not motion components. It does not inherit variants from a parent and does not run on the server (use `getMotionSSRStyle(options, tag)` for the initial style; it returns dash-case keys, and for SVG tags only the style, not the attributes motion moves out of it).
+Solid 2 has no `use:` directives, so motion is attached to elements that are not motion components through a ref factory: call `attachMotion` in a component body and pass the result as `ref`. Give it an accessor when the options change over time. It does not inherit variants from a parent and does not run on the server (use `getMotionSSRStyle(options, tag)` for the initial style; it returns dash-case keys, and for SVG tags only the style, not the attributes motion moves out of it).
 
 ```tsx
 import { createSignal } from 'solid-js'
-import { createPresetDirective, vMotion } from 'motion-solid'
+import { attachMotion, createPresetMotion } from 'motion-solid'
 
-const fadeIn = createPresetDirective({ initial: { opacity: 0 }, animate: { opacity: 1 } })
+const fadeIn = createPresetMotion({ initial: { opacity: 0 }, animate: { opacity: 1 } })
 
-export function Directive() {
+export function Attached() {
   const [x, setX] = createSignal(0)
   return (
     <>
-      <div ref={vMotion({ initial: { opacity: 0 }, animate: { opacity: 1 } })} />
-      <div ref={vMotion(() => ({ animate: { x: x() } }))} onClick={() => setX(100)} />
+      <div ref={attachMotion({ initial: { opacity: 0 }, animate: { opacity: 1 } })} />
+      <div ref={attachMotion(() => ({ animate: { x: x() } }))} onClick={() => setX(100)} />
       <div ref={fadeIn({ transition: { duration: 1 } })} />
     </>
   )
 }
 ```
+
+For an element you create or receive yourself, such as a third-party widget, `makeMotion` attaches motion to it immediately and returns a function that removes it. It follows the `make*` convention of Solid Primitives (compare `makeEventListener`): the options are a plain object, and it is removed automatically when the owner it was called in is disposed.
+
+```tsx
+import { makeMotion } from 'motion-solid'
+
+export function Widget() {
+  const el = document.createElement('div')
+  el.textContent = 'Hello'
+  // Removed when Widget is disposed. Outside a component, keep the returned function and call it to stop.
+  makeMotion(el, { initial: { opacity: 0 }, animate: { opacity: 1 }, whileHover: { scale: 1.1 } })
+  return el
+}
+```
+
+Call `makeMotion` from a component body, a computation, or an event handler, not from `onSettled` or an effect's apply callback: Solid 2 does not allow registering cleanup there. To change the options of an attached element, use `attachMotion` with an accessor.
 
 #### Notes
 

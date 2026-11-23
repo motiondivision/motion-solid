@@ -5,7 +5,7 @@ import { access } from '@solid-primitives/utils'
 import { scopeMotion } from 'motion-dom'
 import { createEffect, createMemo, createSignal } from 'solid-js'
 import type { ElementInput } from '@/utils/use-dom-ref'
-import { resolveElementInput } from '@/utils/use-dom-ref'
+import { createMounted, resolveElementInput } from '@/utils/use-dom-ref'
 
 export type CreateScopeMotionOptions = ScopeOptions
 
@@ -20,7 +20,13 @@ export function createScopeMotion(
   options?: MaybeAccessor<CreateScopeMotionOptions | undefined>,
 ): Accessor<MotionScope | null> {
   const [scope, setScope] = createSignal<MotionScope | null>(null)
-  const el = createMemo(() => resolveElementInput(element))
+  // A plain `() => el` or `{ current }` is not reactive: read `mounted` so it resolves again once
+  // refs have been assigned.
+  const mounted = createMounted()
+  const el = createMemo(() => {
+    mounted()
+    return resolveElementInput(element)
+  })
   const opts = createMemo(() => access(options))
 
   // Created on the server too (the effect is inert there) so hydration ids line up.

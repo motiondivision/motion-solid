@@ -1,5 +1,5 @@
-import { createEffect, createMemo, createRenderEffect, onCleanup, onSettled } from 'solid-js'
-import { access } from '@solid-primitives/utils'
+import { createEffect, createMemo, createRenderEffect, getOwner, onCleanup, onSettled, untrack } from 'solid-js'
+import { access, tryOnCleanup } from '@solid-primitives/utils'
 import type { MaybeAccessor } from '@solid-primitives/utils'
 import { warning } from 'motion-utils'
 import type { Options } from '@/types'
@@ -20,7 +20,7 @@ import { resolveMotionProps } from '@/utils/resolve-motion-props'
  */
 export type MotionRefOptions = Options
 
-/** The ref callback a motion ref factory returns: `<div ref={vMotion({ ... })} />`. */
+/** The ref callback a motion ref factory returns: `<div ref={attachMotion({ ... })} />`. */
 export type MotionRef = (el: HTMLElement | SVGElement) => void
 
 /**
@@ -70,8 +70,16 @@ function toCssProperties(style: Record<string, any>): Record<string, any> {
   return result
 }
 
+/**
+ * The tag name motion expects: lower case for HTML, as written for SVG (`radialGradient`, `clipPath`,
+ * `feGaussianBlur`), where `tagName` keeps its case and the `svgElements` list is camelCase too.
+ */
+function motionTagName(el: Element): string {
+  return el.namespaceURI === 'http://www.w3.org/2000/svg' ? el.localName : el.tagName.toLowerCase()
+}
+
 function applyInitialStyles(el: HTMLElement | SVGElement, state: MotionState) {
-  const { styles, attrs } = computeStyles(state.latestValues, el.tagName.toLowerCase(), state.options.style)
+  const { styles, attrs } = computeStyles(state.latestValues, motionTagName(el), state.options.style)
   if (attrs) {
     for (const key in attrs) el.setAttribute(key, String(attrs[key]))
   }
@@ -101,7 +109,7 @@ function applyInitialStyles(el: HTMLElement | SVGElement, state: MotionState) {
  * @param featureBundle - Optional feature bundle (`domAnimation` or `domMax`)
  * @param defaultOptions - Optional default props merged under the per-use props
  */
-export function createMotionDirective(
+export function createAttachMotion(
   featureBundle?: FeatureBundle,
   defaultOptions?: MotionRefOptions,
 ): MotionRefFactory {
@@ -122,7 +130,7 @@ export function createMotionDirective(
     ))
     const withTag = (latest: Options): Options => ({
       ...latest,
-      as: element!.tagName.toLowerCase() as Options['as'],
+      as: motionTagName(element!) as Options['as'],
     })
 
     // Before the DOM updates: hand motion the new options and let layout snapshot.
@@ -186,18 +194,81 @@ export function createMotionDirective(
  *
  * @example
  * ```tsx
- * const fadeIn = createPresetDirective({ initial: { opacity: 0 }, animate: { opacity: 1 } })
+ * const fadeIn = createPresetMotion({ initial: { opacity: 0 }, animate: { opacity: 1 } })
  * <div ref={fadeIn()} />
  * <div ref={fadeIn({ transition: { duration: 1 } })} />
  * ```
  */
-export function createPresetDirective(
+export function createPresetMotion(
   preset: MotionRefOptions,
   featureBundle?: FeatureBundle,
 ): MotionRefFactory {
-  return createMotionDirective(featureBundle ?? domMax, preset)
+  return createAttachMotion(featureBundle ?? domMax, preset)
 }
 
-/** Motion ref factory with all features: `<div ref={vMotion({ animate: { x: 100 } })} />`. */
-export const vMotion: MotionRefFactory = createMotionDirective(domMax)
+/** Motion ref factory with all features: `<div ref={attachMotion({ animate: { x: 100 } })} />`. */
+export const attachMotion: MotionRefFactory = createAttachMotion(domMax)
 
+/**
+ * Attach motion to an element you already have, right now, and get back a function that
+ * removes it. The imperative counterpart of the `attachMotion` ref factory, and the same
+ * shape as `makeEventListener` in Solid Primitives: non-reactive (a plain options object,
+ * no signals are read), it attaches immediately, is removed when the owner it was called
+ * in is disposed, and returns a disposer for earlier removal.
+ *
+ * Use it for an element you create or receive yourself (a third-party widget, a node from
+ * `document.createElement`). For an element in your own JSX, pass `attachMotion(options)`
+ * as `ref` instead, and give that an accessor when the options change over time. Here, to
+ * change the options, remove motion and call `makeMotion` again.
+ *
+ * Call it from a component body, a computation, or outside any owner. Like
+ * `makeEventListener`, it registers its cleanup with the current owner, which Solid 2
+ * forbids inside `onSettled` and an effect's apply callback: there, call it from the
+ * component body instead. The same differences from `<Motion>` apply: no parent-variant
+ * propagation (the layout group, presence and `MotionConfig` contexts are still honoured, read
+ * once when it is called) and no SSR.
+ *
+ * @example
+ * ```tsx
+ * function Widget() {
+ *   const el = createThirdPartyWidget()
+ *   makeMotion(el, { animate: { opacity: 1 }, whileHover: { scale: 1.05 } }) // removed with Widget
+ *   return el
+ * }
+ * ```
+ *
+ * @param element - The element to animate
+ * @param options - Motion props (not an accessor)
+ * @param featureBundle - Optional feature bundle (`domAnimation` or `domMax`, the default)
+ */
+export function makeMotion(
+  element: HTMLElement | SVGElement,
+  options: MotionRefOptions = {},
+  featureBundle?: FeatureBundle,
+): VoidFunction {
+  const owned = getOwner() !== null
+  const resolved = resolveMotionProps(options, {
+    layoutGroup: owned ? useLayoutGroupContext() : {},
+    presenceContext: owned ? useAnimatePresenceContext() : {},
+    // A snapshot on purpose: makeMotion is non-reactive, so the MotionConfig in effect when it is
+    // called is the one the element gets. Use `attachMotion` for config that follows changes.
+    config: owned ? untrack(useMotionConfig()) : {},
+  })
+  const state = new MotionState(
+    { ...resolved, as: motionTagName(element) as Options['as'] },
+    undefined,
+    { renderer: featureBundle?.renderer ?? defaultRenderer, features: featureBundle?.features ?? domMax.features },
+  )
+  applyInitialStyles(element, state)
+  state.mount(element)
+
+  let removed = false
+  const remove = () => {
+    if (removed)
+      return
+    removed = true
+    state.beforeUnmount()
+    state.unmount()
+  }
+  return tryOnCleanup(remove) as VoidFunction
+}
