@@ -3,6 +3,7 @@ import type { MotionState } from '@/state'
 import type { ExitFeature } from '@/features/exit/exit'
 import type { AnimatePresenceProps } from './types'
 import type { PresenceHandler } from './presence'
+import { afterFlush } from '@/utils/after-flush'
 
 export interface ExitSessionConfig {
   // Read lazily at track time, since these are reactive props
@@ -190,7 +191,7 @@ export function createExitSession(config: ExitSessionConfig) {
     // A child with nothing to wait for still joins the batch. Defer so sibling
     // leaves in the same patch register before onExitComplete can fire.
     if (session.pending === 0)
-      queueMicrotask(() => finishIfIdle(session))
+      afterFlush(() => finishIfIdle(session))
   }
 
   function settle(session: ExitSession) {

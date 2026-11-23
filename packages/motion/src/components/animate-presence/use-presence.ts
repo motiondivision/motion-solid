@@ -2,6 +2,7 @@ import type { Accessor } from 'solid-js'
 import { createSignal, onCleanup, onSettled } from 'solid-js'
 import type { PresenceHandler } from './presence'
 import { useAnimatePresenceContext } from './presence'
+import { afterFlush } from '@/utils/after-flush'
 
 export interface CreatePresenceOptions {
   /** The element whose removal this presence holds. Read after mount and kept. */
@@ -59,7 +60,7 @@ function registerPresence(options: CreatePresenceOptions & { hold: boolean }) {
   // The container discovers handlers while it starts the exit, which happens right after
   // this owner is disposed (in the same flush). Unregister once that has run.
   onCleanup(() => {
-    queueMicrotask(() => presence.unregisterHandler!(handler))
+    afterFlush(() => presence.unregisterHandler!(handler))
   })
 
   return { isPresent, safeToRemove }

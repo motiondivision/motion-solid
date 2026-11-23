@@ -13,6 +13,7 @@ import { useLayoutGroupContext } from '@/components/context'
 import { useAnimatePresenceContext } from '@/components/animate-presence/presence'
 import { useMotionConfig } from '@/components/motion-config/context'
 import { resolveMotionProps } from '@/utils/resolve-motion-props'
+import { afterFlush } from '@/utils/after-flush'
 
 /**
  * Motion props accepted by the ref factories. Same syntax as the props of `<Motion>`
@@ -177,7 +178,7 @@ export function createAttachMotion(
           current.unmount()
       }
       if (el?.isConnected)
-        queueMicrotask(unmountIfDetached)
+        afterFlush(unmountIfDetached)
       else
         unmountIfDetached()
     })

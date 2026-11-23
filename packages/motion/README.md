@@ -331,17 +331,17 @@ export function App() {
 }
 ```
 
-#### Ref-factory directive
+#### Attach motion to any element
 
-Solid 2 has no `use:` directives, so the directive is a ref factory: call `attachMotion` in a component body and pass the result as `ref`. It works on elements that are not motion components. It does not inherit variants from a parent and does not run on the server (use `getMotionSSRStyle(options, tag)` for the initial style; it returns dash-case keys, and for SVG tags only the style, not the attributes motion moves out of it).
+Solid 2 has no `use:` directives, so motion is attached to elements that are not motion components through a ref factory: call `attachMotion` in a component body and pass the result as `ref`. Give it an accessor when the options change over time. It does not inherit variants from a parent and does not run on the server (use `getMotionSSRStyle(options, tag)` for the initial style; it returns dash-case keys, and for SVG tags only the style, not the attributes motion moves out of it).
 
 ```tsx
 import { createSignal } from 'solid-js'
-import { createPresetMotion, attachMotion } from 'motion-solid'
+import { attachMotion, createPresetMotion } from 'motion-solid'
 
 const fadeIn = createPresetMotion({ initial: { opacity: 0 }, animate: { opacity: 1 } })
 
-export function Directive() {
+export function Attached() {
   const [x, setX] = createSignal(0)
   return (
     <>
@@ -352,6 +352,22 @@ export function Directive() {
   )
 }
 ```
+
+For an element you create or receive yourself, such as a third-party widget, `makeMotion` attaches motion to it immediately and returns a function that removes it. It follows the `make*` convention of Solid Primitives (compare `makeEventListener`): the options are a plain object, and it is removed automatically when the owner it was called in is disposed.
+
+```tsx
+import { makeMotion } from 'motion-solid'
+
+export function Widget() {
+  const el = document.createElement('div')
+  el.textContent = 'Hello'
+  // Removed when Widget is disposed. Outside a component, keep the returned function and call it to stop.
+  makeMotion(el, { initial: { opacity: 0 }, animate: { opacity: 1 }, whileHover: { scale: 1.1 } })
+  return el
+}
+```
+
+Call `makeMotion` from a component body, a computation, or an event handler, not from `onSettled` or an effect's apply callback: Solid 2 does not allow registering cleanup there. To change the options of an attached element, use `attachMotion` with an accessor.
 
 #### Notes
 

@@ -13,6 +13,7 @@ import { createSVGStyles, createStyles } from '@/state/style'
 import { resolveInitialValues } from '@/state/utils'
 import type { Options } from '@/types'
 import { resolveMotionProps } from '@/utils/resolve-motion-props'
+import { afterFlush } from '@/utils/after-flush'
 
 /**
  * The props a motion component hands to `createMotionState`: its own props plus the
@@ -274,7 +275,7 @@ export function createMotionState(
         state.unmount()
     }
     if (el?.isConnected)
-      queueMicrotask(unmountIfDetached)
+      afterFlush(unmountIfDetached)
     else
       unmountIfDetached()
   })

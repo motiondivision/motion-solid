@@ -4,6 +4,7 @@ import { useMotionConfig } from '@/components/motion-config/context'
 import { useLayoutGroupContext } from '@/components/context'
 import { createExitSession } from './exit-session'
 import type { PresenceContext } from './presence'
+import { afterFlush } from '@/utils/after-flush'
 
 /**
  * The state shared by one `AnimatePresence`: the exit session (registries, exit batching,
@@ -60,7 +61,7 @@ export function createPresenceContainer(props: AnimatePresenceProps) {
   onCleanup(() => {
     if (props.propagate) {
       // The parent starts this presence's exit right after this owner is disposed.
-      queueMicrotask(session.disposeAfterExits)
+      afterFlush(session.disposeAfterExits)
     }
     else {
       session.dispose()

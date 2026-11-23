@@ -1,6 +1,7 @@
 import type { IProjectionNode, NodeGroup } from 'motion-dom'
 import { layoutRefresh } from '@/components/context'
 import { mountedStates } from '@/state/motion-state'
+import { afterFlush } from '@/utils/after-flush'
 
 /**
  * Layout coordinator: makes plain `layout` / `layoutId` components animate when their
@@ -221,7 +222,7 @@ export function registerLayoutNode(node: IProjectionNode, element: Element): () 
   // The first measurement of a node has to exist before the first change to animate from.
   if (!seedScheduled) {
     seedScheduled = true
-    queueMicrotask(() => {
+    afterFlush(() => {
       seedScheduled = false
       update(true)
     })
@@ -262,5 +263,5 @@ export function snapshotLayoutSiblings(source: IProjectionNode) {
  * `forceRender` calls.
  */
 export function refreshLayout(group?: NodeGroup) {
-  queueMicrotask(() => update(false, group))
+  afterFlush(() => update(false, group))
 }
